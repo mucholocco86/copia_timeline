@@ -1,0 +1,14 @@
+Fontes Inter usadas pelo Timeline
+===================================
+
+O Timeline usa estes arquivos compartilhados em wells/fonts/:
+
+- Inter-Regular.ttf
+- Inter-Bold.ttf
+- InterVariable.ttf
+
+Origem: https://rsms.me/inter/
+Licença: SIL Open Font License 1.1.
+
+Este aviso acompanha as fontes Inter que já fazem parte da pasta compartilhada
+de fontes do Wells.

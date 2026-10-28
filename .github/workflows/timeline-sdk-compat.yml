@@ -1,0 +1,313 @@
+name: Timeline SDK compatibility
+
+on:
+  push:
+    branches:
+      - ci/timeline-sdk-compat
+      - main
+    paths:
+      - ".github/workflows/timeline-sdk-compat.yml"
+      - "wells/**"
+      - "wells_beta/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: timeline-sdk-compat-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: ${{ matrix.sdk_label }} — ${{ matrix.project_label }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          # Controlled fixture shipped with each SDK.
+          - sdk_label: Ren'Py 6.99.4
+            sdk_path: renpy-6.99.4-sdk
+            project_label: SDK fixture (the_question)
+            project_path: renpy-6.99.4-sdk/the_question
+          - sdk_label: Ren'Py 7.4.11
+            sdk_path: renpy-7.4.11-sdk
+            project_label: SDK fixture (the_question)
+            project_path: renpy-7.4.11-sdk/the_question
+          - sdk_label: Ren'Py 8.5.3
+            sdk_path: renpy-8.5.3-sdk
+            project_label: SDK fixture (the_question)
+            project_path: renpy-8.5.3-sdk/the_question
+
+          # Real laboratory projects, each tested with every SDK.
+          - sdk_label: Ren'Py 6.99.4
+            sdk_path: renpy-6.99.4-sdk
+            project_label: Nephilim 0.6.9
+            project_path: JOGOS PARA TESTES/Nephilim-0.6.9-pc-Compressed-pc
+          - sdk_label: Ren'Py 7.4.11
+            sdk_path: renpy-7.4.11-sdk
+            project_label: Nephilim 0.6.9
+            project_path: JOGOS PARA TESTES/Nephilim-0.6.9-pc-Compressed-pc
+          - sdk_label: Ren'Py 8.5.3
+            sdk_path: renpy-8.5.3-sdk
+            project_label: Nephilim 0.6.9
+            project_path: JOGOS PARA TESTES/Nephilim-0.6.9-pc-Compressed-pc
+          - sdk_label: Ren'Py 6.99.4
+            sdk_path: renpy-6.99.4-sdk
+            project_label: Thief of Hearts Part 1 0.0.3b
+            project_path: JOGOS PARA TESTES/ThiefofHeartsPart1-0.0.3b-pc
+          - sdk_label: Ren'Py 7.4.11
+            sdk_path: renpy-7.4.11-sdk
+            project_label: Thief of Hearts Part 1 0.0.3b
+            project_path: JOGOS PARA TESTES/ThiefofHeartsPart1-0.0.3b-pc
+          - sdk_label: Ren'Py 8.5.3
+            sdk_path: renpy-8.5.3-sdk
+            project_label: Thief of Hearts Part 1 0.0.3b
+            project_path: JOGOS PARA TESTES/ThiefofHeartsPart1-0.0.3b-pc
+          - sdk_label: Ren'Py 6.99.4
+            sdk_path: renpy-6.99.4-sdk
+            project_label: Guilty Pleasure 0.65
+            project_path: JOGOS PARA TESTES/GuiltyPleasure-0.65-pc
+          - sdk_label: Ren'Py 7.4.11
+            sdk_path: renpy-7.4.11-sdk
+            project_label: Guilty Pleasure 0.65
+            project_path: JOGOS PARA TESTES/GuiltyPleasure-0.65-pc
+          - sdk_label: Ren'Py 8.5.3
+            sdk_path: renpy-8.5.3-sdk
+            project_label: Guilty Pleasure 0.65
+            project_path: JOGOS PARA TESTES/GuiltyPleasure-0.65-pc
+          - sdk_label: Ren'Py 6.99.4
+            sdk_path: renpy-6.99.4-sdk
+            project_label: MyDorm 0.32.4
+            project_path: JOGOS PARA TESTES/MyDorm-v0.32.4-Season4-Chapter5-pc
+          - sdk_label: Ren'Py 7.4.11
+            sdk_path: renpy-7.4.11-sdk
+            project_label: MyDorm 0.32.4
+            project_path: JOGOS PARA TESTES/MyDorm-v0.32.4-Season4-Chapter5-pc
+          - sdk_label: Ren'Py 8.5.3
+            sdk_path: renpy-8.5.3-sdk
+            project_label: MyDorm 0.32.4
+            project_path: JOGOS PARA TESTES/MyDorm-v0.32.4-Season4-Chapter5-pc
+
+          - sdk_label: Ren'Py 6.99.4
+            sdk_path: renpy-6.99.4-sdk
+            project_label: Intertwined 0.16
+            project_path: JOGOS PARA TESTES/Intertwined-0.16-pc
+          - sdk_label: Ren'Py 7.4.11
+            sdk_path: renpy-7.4.11-sdk
+            project_label: Intertwined 0.16
+            project_path: JOGOS PARA TESTES/Intertwined-0.16-pc
+          - sdk_label: Ren'Py 8.5.3
+            sdk_path: renpy-8.5.3-sdk
+            project_label: Intertwined 0.16
+            project_path: JOGOS PARA TESTES/Intertwined-0.16-pc
+
+          - sdk_label: Ren'Py 6.99.4
+            sdk_path: renpy-6.99.4-sdk
+            project_label: Godson
+            project_path: JOGOS PARA TESTES/Godson-pc
+          - sdk_label: Ren'Py 7.4.11
+            sdk_path: renpy-7.4.11-sdk
+            project_label: Godson
+            project_path: JOGOS PARA TESTES/Godson-pc
+          - sdk_label: Ren'Py 8.5.3
+            sdk_path: renpy-8.5.3-sdk
+            project_label: Godson
+            project_path: JOGOS PARA TESTES/Godson-pc
+
+          - sdk_label: Ren'Py 6.99.4
+            sdk_path: renpy-6.99.4-sdk
+            project_label: Him 0.5.0
+            project_path: JOGOS PARA TESTES/Him-0.5.0-pc
+          - sdk_label: Ren'Py 7.4.11
+            sdk_path: renpy-7.4.11-sdk
+            project_label: Him 0.5.0
+            project_path: JOGOS PARA TESTES/Him-0.5.0-pc
+          - sdk_label: Ren'Py 8.5.3
+            sdk_path: renpy-8.5.3-sdk
+            project_label: Him 0.5.0
+            project_path: JOGOS PARA TESTES/Him-0.5.0-pc
+
+    steps:
+      - name: Check out Timeline
+        uses: actions/checkout@v4
+        with:
+          path: timeline
+          persist-credentials: false
+
+      - name: Check out only the selected SDK and game fixture
+        uses: actions/checkout@v4
+        with:
+          repository: mucholocco86/laborat-rio_renpy
+          ref: main
+          path: laboratory
+          persist-credentials: false
+          sparse-checkout: |
+            ${{ matrix.sdk_path }}
+            ${{ matrix.project_path }}
+
+      - name: Install headless display libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes xvfb xauth libgl1 libglu1-mesa libx11-6 libxext6 libxrender1 libxcursor1 libxi6 libxinerama1 libxrandr2 libxss1 libasound2
+
+      - name: Compare pristine project with a disposable Timeline copy
+        shell: bash
+        env:
+          SDK_PATH: ${{ matrix.sdk_path }}
+          PROJECT_PATH: ${{ matrix.project_path }}
+          SDK_LABEL: ${{ matrix.sdk_label }}
+          PROJECT_LABEL: ${{ matrix.project_label }}
+        run: |
+          set -euo pipefail
+          sdk="$GITHUB_WORKSPACE/laboratory/$SDK_PATH"
+          source_project="$GITHUB_WORKSPACE/laboratory/$PROJECT_PATH"
+          work="$RUNNER_TEMP/timeline-compat"
+          pristine="$work/pristine"
+          with_timeline="$work/with-timeline"
+          logs="$GITHUB_WORKSPACE/logs"
+          mkdir -p "$logs"
+          mkdir -p "$work"
+          test -d "$source_project/game"
+          test -f "$sdk/renpy.sh"
+          # The SDK binaries are stored without executable mode in the lab repository.
+          # Restore it only in this temporary CI checkout before invoking the launcher.
+          find "$sdk/lib" -type f -path "*linux-x86_64*/renpy" -exec chmod +x {} +
+          cp -a "$source_project" "$pristine"
+          cp -a "$source_project" "$with_timeline"
+
+          # Both lint runs use disposable copies. The checked-out game and SDK
+          # source trees are never used as Ren'Py's project directory.
+          package_source="$GITHUB_WORKSPACE/timeline/wells"
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            package_source="$GITHUB_WORKSPACE/timeline/wells_beta"
+          fi
+
+          # Test the Timeline package in isolation. Other Wells framework
+          # modules have their own SDK requirements and are outside this matrix.
+          mkdir -p "$with_timeline/game/wells"
+          cp -a "$package_source/timeline" "$with_timeline/game/wells/timeline"
+          if [[ -f "$package_source/fonts/Roboto-Regular.ttf" ]]; then
+            mkdir -p "$with_timeline/game/wells/fonts"
+            cp "$package_source/fonts/Roboto-Regular.ttf" "$with_timeline/game/wells/fonts/"
+          fi
+          cat > "$with_timeline/game/wells/timeline_compat_test.rpy" <<'PY'
+          init -1000 python:
+              # Minimal sizing helpers provided by the host Wells framework.
+              def wells_ui(value):
+                  return value
+
+              def wells_ui_signed(value):
+                  return value
+
+              def wells_ui_pad(left, top, right=None, bottom=None):
+                  if right is None:
+                      right = left
+                  if bottom is None:
+                      bottom = top
+                  return (left, top, right, bottom)
+          PY
+
+          for project in "$pristine" "$with_timeline"; do
+            find "$project/game" -type d -name cache -prune -exec rm -rf {} +
+            find "$project/game" -type f \( -name '*.rpyc' -o -name '*.rpymc' \) -delete
+          done
+
+          source_hash_before="$(find "$source_project/game" -type f \( -name '*.rpy' -o -name '*.rpym' \) -print0 | sort -z | xargs -0 -r sha256sum | sha256sum)"
+          run_lint() {
+            project="$1"
+            log="$2"
+            set +e
+            timeout --signal=TERM --kill-after=10s 300s \
+              env SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=x11 LIBGL_ALWAYS_SOFTWARE=1 \
+              xvfb-run -a sh "$sdk/renpy.sh" "$project" lint >"$log" 2>&1
+            result=$?
+            set -e
+            return "$result"
+          }
+
+          if run_lint "$pristine" "$logs/pristine.log"; then
+            echo "Pristine project lint: PASS"
+          else
+            base_rc=$?
+            echo "BASELINE_INCOMPATIBLE: pristine game failed under $SDK_LABEL (exit $base_rc)." | tee "$logs/result.txt"
+            echo "The Timeline result for this SDK/game pair is inconclusive because the unmodified project already fails." | tee -a "$logs/result.txt"
+            {
+              echo "## $SDK_LABEL — $PROJECT_LABEL"
+              echo
+              echo "Baseline lint failed (exit $base_rc). This pair is inconclusive for Timeline compatibility; failure is present before Timeline is added."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if run_lint "$with_timeline" "$logs/timeline.log"; then
+            echo "Timeline project lint: PASS"
+            echo "PASS: baseline and Timeline copies both lint successfully." | tee "$logs/result.txt"
+            {
+              echo "## $SDK_LABEL — $PROJECT_LABEL"
+              echo
+              echo "Baseline and Timeline copies both lint successfully."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            timeline_rc=$?
+            echo "REGRESSION: baseline passed, Timeline copy failed (exit $timeline_rc)." | tee "$logs/result.txt"
+            tail -n 120 "$logs/timeline.log"
+            {
+              echo "## $SDK_LABEL — $PROJECT_LABEL"
+              echo
+              echo "Baseline passed, but the Timeline copy failed lint (exit $timeline_rc). See the job log artifact."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit "$timeline_rc"
+          fi
+
+          source_hash_after="$(find "$source_project/game" -type f \( -name '*.rpy' -o -name '*.rpym' \) -print0 | sort -z | xargs -0 -r sha256sum | sha256sum)"
+          test "$source_hash_before" = "$source_hash_after"
+          echo "Original project script hashes unchanged." | tee -a "$logs/result.txt"
+
+      - name: Upload lint logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: timeline-${{ strategy.job-index }}-lint-logs
+          path: logs/
+          if-no-files-found: ignore
+  package:
+    name: Package downloadable Timeline source
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out tested commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Create source ZIP for the active package
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_package="wells"
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            source_package="wells_beta"
+          fi
+          PACKAGE_SOURCE="$GITHUB_WORKSPACE/$source_package" python - <<'PY'
+          import os
+          from pathlib import Path
+          from zipfile import ZIP_DEFLATED, ZipFile
+
+          source = Path(os.environ["PACKAGE_SOURCE"])
+          output = Path(os.environ["RUNNER_TEMP"]) / ("wells-timeline-source-" + os.environ["GITHUB_SHA"] + ".zip")
+
+          with ZipFile(output, "w", ZIP_DEFLATED) as archive:
+              for path in sorted(source.rglob("*")):
+                  if path.is_file():
+                      archive.write(path, (Path("wells") / path.relative_to(source)).as_posix())
+          PY
+
+      - name: Upload source ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: wells-timeline-source-${{ github.sha }}
+          path: ${{ runner.temp }}/wells-timeline-source-${{ github.sha }}.zip
+          if-no-files-found: error
