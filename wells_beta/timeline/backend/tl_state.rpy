@@ -751,13 +751,30 @@ init -2 python:
         c["menu"] = _WELLS_TL_PLAIN_DICT()
         return c
 
+    def _tl_drop_saved_snapshot_cache():
+        """Remove the legacy cache from RollbackLog before a save can pickle it."""
+        try:
+            if hasattr(renpy.game.log, "_tl_snapshot_cache"):
+                delattr(renpy.game.log, "_tl_snapshot_cache")
+        except Exception:
+            pass
+
     def _tl_get_snapshot_cache():
-        if not hasattr(renpy.game.log, "_tl_snapshot_cache"):
-            renpy.game.log._tl_snapshot_cache = _tl_make_cache()
-        return renpy.game.log._tl_snapshot_cache
+        ## RollbackLog is serialized with every Ren'Py save. Keep full snapshots on the
+        ## runtime game module instead, so the save does not recursively pickle them.
+        _tl_drop_saved_snapshot_cache()
+        if not hasattr(renpy.game, "_tl_snapshot_cache"):
+            renpy.game._tl_snapshot_cache = _tl_make_cache()
+        return renpy.game._tl_snapshot_cache
+
+    def _tl_reset_snapshot_cache():
+        """Discard snapshots from a different loaded game state."""
+        _tl_drop_saved_snapshot_cache()
+        renpy.game._tl_snapshot_cache = _tl_make_cache()
+        return renpy.game._tl_snapshot_cache
 
     def _tl_init_snapshot_cache():
-        """Ensure cache exists on the loaded log. Called by _tl_on_load."""
+        """Ensure the runtime-only snapshot cache exists after loading."""
         _tl_get_snapshot_cache()
 
     def _tl_capture_snapshot():
@@ -815,14 +832,10 @@ init -2 python:
         return _tl_get_snapshot_cache()["menu"].get(node_index)
 
     def _tl_transfer_snapshot_cache(new_log):
-        """Copy cache from current renpy.game.log to new_log."""
-        old_cache = getattr(renpy.game.log, "_tl_snapshot_cache", None)
-        if old_cache is not None:
-            new_log._tl_snapshot_cache = old_cache
-            _tl_log("Timeline unfreeze: cache copiado; menus={}".format(
-                len(old_cache.get("menu", {}))))
-        else:
-            _tl_log("Timeline unfreeze: no cache to copy (old_log had none)")
+        """Keep menu snapshots in runtime memory, outside the serialized RollbackLog."""
+        cache = _tl_get_snapshot_cache()
+        _tl_log("Timeline unfreeze: cache runtime preservado; menus={}".format(
+            len(cache.get("menu", {}))))
 
     def _tl_unfreeze_from_snapshot(snap):
         """

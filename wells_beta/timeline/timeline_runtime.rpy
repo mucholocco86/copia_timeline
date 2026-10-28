@@ -520,19 +520,25 @@ init 0 python:
 init python:
     def _tl_on_game_start():
         try:
+            _tl_reset_snapshot_cache()
             _tl_clear_replay_state()
             _tl_save_no_screenshot("wf_start")
         except Exception as e:
             _tl_log("Timeline ERROR initial save failed: {}".format(e))
 
     def _tl_on_load():
-        _tl_init_snapshot_cache()
+        ## Snapshot cache não é serializado junto ao save. Preserve-o apenas durante
+        ## o salto sintético da sessão atual; um load normal inicia cache limpo.
+        is_synthetic = getattr(persistent, "_tl_synthetic_jump", False)
+        if is_synthetic:
+            _tl_init_snapshot_cache()
+        else:
+            _tl_reset_snapshot_cache()
 
         ## Limpa somente quando replaying é True e target é None — estado obsoleto
         ## de uma sessão encerrada inesperadamente. Se ambos estiverem definidos, o carregamento da repetição é válido
         ## e não devemos limpar os dados; caso contrário, os menus serão executados com replaying=False e
         ## farão novas capturas de tela.
-        is_synthetic = getattr(persistent, "_tl_synthetic_jump", False)
         if is_synthetic:
             persistent._tl_synthetic_jump = False
             try:
