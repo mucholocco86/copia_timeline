@@ -113,7 +113,7 @@ screen wells_timeline():
 
                         button:
                             idle_background Frame("wells/timeline/gui/Button-idle.png", 5, 5)
-                            hover_background Frame("wells/timeline/gui/Button-hover.png", wells_ui(5), wells_ui(5))
+                            hover_background Frame("wells/timeline/gui/Button-hover.png", 5, 5)
                             left_padding wells_ui_signed(18)
                             top_padding wells_ui_signed(9)
                             right_padding wells_ui_signed(18)
@@ -128,8 +128,8 @@ screen wells_timeline():
                                 yalign 0.5
 
                         button:
-                            idle_background Frame("wells/timeline/gui/Button-idle.png", wells_ui(5), wells_ui(5))
-                            hover_background Frame("wells/timeline/gui/Button-hover.png", wells_ui(5), wells_ui(5))
+                            idle_background Frame("wells/timeline/gui/Button-idle.png", 5, 5)
+                            hover_background Frame("wells/timeline/gui/Button-hover.png", 5, 5)
                             left_padding wells_ui_signed(18)
                             top_padding wells_ui_signed(9)
                             right_padding wells_ui_signed(18)
@@ -155,8 +155,8 @@ screen wells_timeline():
                             yalign 0.5
 
                             button:
-                                idle_background Frame("wells/timeline/gui/Button-idle.png", wells_ui(5), wells_ui(5))
-                                hover_background Frame("wells/timeline/gui/Button-hover.png", wells_ui(5), wells_ui(5))
+                                idle_background Frame("wells/timeline/gui/Button-idle.png", 5, 5)
+                                hover_background Frame("wells/timeline/gui/Button-hover.png", 5, 5)
                                 left_padding wells_ui_signed(18)
                                 top_padding wells_ui_signed(9)
                                 right_padding wells_ui_signed(18)
@@ -227,8 +227,8 @@ screen wells_timeline():
                             spacing wells_ui(8)
                             yalign 0.5
                             button:
-                                idle_background Frame("wells/timeline/gui/Button-idle.png", wells_ui(5), wells_ui(5))
-                                hover_background Frame("wells/timeline/gui/Button-hover.png", wells_ui(5), wells_ui(5))
+                                idle_background Frame("wells/timeline/gui/Button-idle.png", 5, 5)
+                                hover_background Frame("wells/timeline/gui/Button-hover.png", 5, 5)
                                 left_padding wells_ui_signed(18)
                                 top_padding wells_ui_signed(9)
                                 right_padding wells_ui_signed(18)
@@ -253,8 +253,8 @@ screen wells_timeline():
                             right_padding wells_ui_signed(0)
                             bottom_padding wells_ui_signed(0)
                             xysize (wells_ui(100), wells_ui(40))
-                            idle_background Frame("wells/timeline/gui/Button-idle.png", wells_ui(5), wells_ui(5))
-                            hover_background Frame("wells/timeline/gui/Button-hover.png", wells_ui(5), wells_ui(5))
+                            idle_background Frame("wells/timeline/gui/Button-idle.png", 5, 5)
+                            hover_background Frame("wells/timeline/gui/Button-hover.png", 5, 5)
                             action [Function(renpy.layer_at_list, [], layer="master"), Hide("wells_timeline")]
                             text _("Fechar") xalign 0.5 yalign 0.5 size wells_ui(22) hover_color "#2bff00"
 

@@ -481,9 +481,9 @@ screen wells_tl_route_map(panel_width=None):
                 value XScrollValue("tl_route_map_vp")
                 xsize wells_ui(800) ysize wells_ui(25)
                 idle_right_bar Frame("wells/timeline/gui/barra_vazia.png", 5, 5)
-                hover_right_bar Frame("wells/timeline/gui/barra_vazia.png", wells_ui(5), wells_ui(5))
-                idle_left_bar Frame("wells/timeline/gui/barra_cheia.png", wells_ui(5), wells_ui(5))
-                hover_left_bar Frame("wells/timeline/gui/barra_cheia.png", wells_ui(5), wells_ui(5))
+                hover_right_bar Frame("wells/timeline/gui/barra_vazia.png", 5, 5)
+                idle_left_bar Frame("wells/timeline/gui/barra_cheia.png", 5, 5)
+                hover_left_bar Frame("wells/timeline/gui/barra_cheia.png", 5, 5)
                 thumb "wells/timeline/gui/pino.png"
                 thumb_shadow None
                 thumb_offset 1
@@ -988,8 +988,8 @@ screen wells_tl_modal(node):
                             xfill True
                             xpadding wells_ui(14)
                             ypadding wells_ui(10)
-                            background Frame("wells/timeline/gui/Button-idle.png", wells_ui(5), wells_ui(5))
-                            hover_background Frame("wells/timeline/gui/Button-hover.png", wells_ui(5), wells_ui(5))
+                            background Frame("wells/timeline/gui/Button-idle.png", 5, 5)
+                            hover_background Frame("wells/timeline/gui/Button-hover.png", 5, 5)
                             action [Function(_tl_jump, node["index"], None),
                                     Hide("wells_tl_modal"), Hide("wells_timeline"),
                                     Jump("wells_tl_do_load")]
@@ -1244,6 +1244,6 @@ screen wells_tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
                 value YScrollValue("tl_route_vp")
                 top_bar Frame("wells/gui/vertical_cheia.png", 0, 0)
                 bottom_bar Frame("wells/gui/vertical_vazia.png", 0, 0)
-                thumb Frame("wells/gui/v_pino.png", wells_ui(10), wells_ui(0)) xsize wells_ui(20)
+                thumb Frame("wells/gui/v_pino.png", 10, 0) xsize wells_ui(20)
 
 
