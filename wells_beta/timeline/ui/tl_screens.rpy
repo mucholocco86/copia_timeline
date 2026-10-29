@@ -324,7 +324,7 @@ screen wells_tl_route_graph_card_body(graph_node, cw, ch):
         ysize ch
         xpadding wells_ui(3)
         ypadding wells_ui(3)
-        background Solid("#c91b1b" if graph_node.get("active") else "#6c6c6c")
+        background Solid("#2d2c2c")
 
         vbox:
             xfill True
@@ -338,7 +338,7 @@ screen wells_tl_route_graph_card_body(graph_node, cw, ch):
                 ysize ch - _tl_graph_thumb_h - 6
                 xpadding wells_ui(8)
                 ypadding wells_ui(5)
-                background Solid("#101010e8")
+                background Solid("#0a0a0a")
 
                 text _tl_graph_label:
                     font "wells/fonts/Roboto-Regular.ttf"
