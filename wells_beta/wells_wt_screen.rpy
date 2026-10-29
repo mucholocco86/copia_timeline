@@ -24,8 +24,8 @@ screen wf_walkthrough_notification():
             xanchor 0.0
             yanchor 0.0
             padding wells_ui_pad(14, 7, 14, 7)
-            background Solid("#0c0c0c80")
-            hover_background Solid("#0c0c0cb8")
+            idle_background Frame("wells/gui/notify-idle.png", 5, 5)
+            hover_background Frame("wells/gui/notify-hover.png", 5, 5)
             action Show("wf_walkthrough_panel")
 
             text "Walkthrough 🔎":
@@ -44,8 +44,8 @@ screen wf_walkthrough_notification():
             xanchor 0.0
             yanchor 0.0
             padding wells_ui_pad(14, 7, 14, 7)
-            background Solid("#0c0c0c80")
-            hover_background Solid("#0c0c0cb8")
+            idle_background Frame("wells/gui/notify-idle.png", 5, 5)
+            hover_background Frame("wells/gui/notify-hover.png", 5, 5)
             action Show("wf_path_panel", wf_path_token=WFWalkthrough.path_token())
 
             text "Path 🔀":
@@ -87,7 +87,7 @@ screen wf_path_panel(wf_path_token=None):
         xsize wells_ui(840)
         ymaximum wells_ui(520)
         padding wells_ui_pad(24, 20, 24, 22)
-        background Solid("#0c0c0cee")
+        background Frame("wells/gui/frame_menu.png", 10, 10)
 
         vbox:
             xfill True
@@ -107,7 +107,7 @@ screen wf_path_panel(wf_path_token=None):
 
                 button:
                     padding wells_ui_pad(0, 0, 0, 0)
-                    xysize (wells_ui(180), wells_ui(45))
+                    xysize (wells_ui(100), wells_ui(40))
                     xalign 1.0
                     yalign 0.5
                     idle_background Frame("wells/gui/Button-idle.png", 5, 5)
@@ -193,7 +193,7 @@ screen wf_walkthrough_panel():
         xsize wells_ui(1280)
         ysize wells_ui(820)
         padding wells_ui_pad(22, 18, 22, 20)
-        background Solid("#0c0c0ce8")
+        background Frame("wells/gui/frame_menu.png", 10, 10)
 
         vbox:
             spacing wells_ui(12)
@@ -212,7 +212,7 @@ screen wf_walkthrough_panel():
 
                 button:
                     padding wells_ui_pad(0, 0, 0, 0)
-                    xysize (wells_ui(180), wells_ui(45))
+                    xysize (wells_ui(100), wells_ui(40))
                     xalign 1.0
                     yalign 0.5
                     idle_background Frame("wells/gui/Button-idle.png", 5, 5)

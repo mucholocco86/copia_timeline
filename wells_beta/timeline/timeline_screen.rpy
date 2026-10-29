@@ -23,14 +23,7 @@ init python:
 ## =============================================================================
 
 label wells_tl_do_load:
-    if getattr(store, "_tl_native_rollback_checkpoints", None) is not None:
-        $ _tl_checkpoints = store._tl_native_rollback_checkpoints
-        $ _tl_force = getattr(store, "_tl_native_rollback_force", True)
-        $ store._tl_native_rollback_checkpoints = None
-        $ store._tl_native_rollback_force = True
-        $ _tl_log("Timeline do_load: native rollback checkpoints={}".format(_tl_checkpoints))
-        $ renpy.rollback(checkpoints=_tl_checkpoints, force=_tl_force)
-    elif getattr(renpy.game, "_tl_pending_snap", None) is not None:
+    if getattr(renpy.game, "_tl_pending_snap", None) is not None:
         $ _tl_log("Timeline do_load: dispatching snapshot unfreeze")
         $ _snap = renpy.game._tl_pending_snap
         $ renpy.game._tl_pending_snap = None
@@ -242,7 +235,7 @@ screen wells_timeline():
                                 bottom_padding wells_ui_signed(9)
                                 action [Function(_tl_cancel_jump), Hide("wells_timeline"), Jump("wells_tl_do_load")]
 
-                                text "Voltar ao ponto atual":
+                                text "Retorno":
                                     font "wells/fonts/Roboto-Regular.ttf"
                                     size 21
                                     color "#d3d2cf"

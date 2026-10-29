@@ -1175,122 +1175,6 @@ init python:
 
     ## ── Testes da versão 2 ────────────────────────────────────────────────────────────
 
-    def _tl_test_legacy_checkpoint_distance(r):
-        """SDK 6.99 uses checkpoint as the legacy 1-based rollback boundary."""
-        s = "legacy_checkpoint_distance"
-
-        class _Entry(object):
-            def __init__(self, checkpoint):
-                self.checkpoint = checkpoint
-
-        class _Log(object):
-            pass
-
-        older = _Entry(True)
-        target = _Entry(True)
-        newer = _Entry(False)
-        fake_log = _Log()
-        fake_log.log = [older, target, newer]
-
-        r.check(s, "current target has distance one",
-                _tl_legacy_rollback_checkpoint_count(fake_log, id(newer)) == 1)
-        r.check(s, "target entry distance is one-based",
-                _tl_legacy_rollback_checkpoint_count(fake_log, id(target)) == 1)
-        r.check(s, "one hard checkpoint back has distance two",
-                _tl_legacy_rollback_checkpoint_count(fake_log, id(older)) == 2)
-        r.check(s, "missing anchor unavailable",
-                _tl_legacy_rollback_checkpoint_count(fake_log, -1) is None)
-
-    def _tl_test_native_choice_return_staging(r):
-        """The target choice should stage native rollback, not synthetic replay."""
-        s = "native_choice_return_staging"
-        import store as _st
-
-        saved_history = list(_st._tl_history)
-        saved_context = list(_st._tl_context)
-        saved_replaying = persistent._tl_replaying
-        saved_recovery = persistent._tl_recovery_slot
-        saved_path = persistent._tl_replay_path
-        saved_target = persistent._tl_replay_target
-        saved_prev_thumb = persistent._tl_prev_thumb
-        saved_pending = getattr(persistent, "_tl_choice_return_pending", False)
-        saved_synthetic = getattr(persistent, "_tl_synthetic_jump", False)
-        saved_checkpoints = getattr(_st, "_tl_native_rollback_checkpoints", None)
-        saved_force = getattr(_st, "_tl_native_rollback_force", True)
-        saved_native = globals().get("_tl_native_rollback_checkpoints")
-        saved_write = globals().get("_wf_tl_write_recovery")
-        saved_save_persistent = renpy.save_persistent
-
-        try:
-            _st._tl_history = [{"index": 4, "options": ["A", "B"],
-                                "chosen_index": 0, "thumb_bytes": None}]
-            _st._tl_context = []
-            globals()["_tl_native_rollback_checkpoints"] = lambda _node: (3, "menu")
-            globals()["_wf_tl_write_recovery"] = lambda: setattr(
-                persistent, "_tl_recovery_slot", "wf_recovery")
-            renpy.save_persistent = lambda: None
-
-            _tl_jump(4, 1)
-
-            r.check(s, "native rollback checkpoints staged",
-                    _st._tl_native_rollback_checkpoints == 3)
-            r.check(s, "native rollback force staged",
-                    _st._tl_native_rollback_force == "menu")
-            r.check(s, "synthetic replay disabled",
-                    persistent._tl_replaying is False and
-                    persistent._tl_replay_path is None and
-                    persistent._tl_replay_target is None)
-            r.check(s, "choice return marker set",
-                    persistent._tl_choice_return_pending is True)
-        except Exception as e:
-            r.check(s, "no exception", False, str(e))
-        finally:
-            _st._tl_history = saved_history
-            _st._tl_context = saved_context
-            persistent._tl_replaying = saved_replaying
-            persistent._tl_recovery_slot = saved_recovery
-            persistent._tl_replay_path = saved_path
-            persistent._tl_replay_target = saved_target
-            persistent._tl_prev_thumb = saved_prev_thumb
-            persistent._tl_choice_return_pending = saved_pending
-            persistent._tl_synthetic_jump = saved_synthetic
-            _st._tl_native_rollback_checkpoints = saved_checkpoints
-            _st._tl_native_rollback_force = saved_force
-            globals()["_tl_native_rollback_checkpoints"] = saved_native
-            globals()["_wf_tl_write_recovery"] = saved_write
-            renpy.save_persistent = saved_save_persistent
-
-    def _tl_test_unlock_only_returned_choice(r):
-        """The URM fixed-rollback reset applies only to the target AST menu."""
-        s = "unlock_only_returned_choice"
-        log = renpy.game.log
-        saved_fixed = getattr(log, "rollback_is_fixed", None)
-        had_key = hasattr(renpy.game, "_tl_choice_return_ast_key")
-        saved_key = getattr(renpy.game, "_tl_choice_return_ast_key", None)
-        try:
-            log.rollback_is_fixed = True
-            r.check(s, "target key armed",
-                    _tl_arm_choice_return({"ast_key": ("game/test.rpy", 120)}))
-            r.check(s, "other menu remains fixed",
-                    not _tl_unlock_returned_choice(("game/test.rpy", 130)) and
-                    log.rollback_is_fixed is True)
-            r.check(s, "matching menu is unlocked",
-                    _tl_unlock_returned_choice(("game/test.rpy", 120)) and
-                    log.rollback_is_fixed is False)
-            r.check(s, "target key consumed",
-                    getattr(renpy.game, "_tl_choice_return_ast_key", None) is None)
-        except Exception as e:
-            r.check(s, "no exception", False, str(e))
-        finally:
-            log.rollback_is_fixed = saved_fixed
-            if had_key:
-                renpy.game._tl_choice_return_ast_key = saved_key
-            else:
-                try:
-                    del renpy.game._tl_choice_return_ast_key
-                except AttributeError:
-                    pass
-
     def _tl_test_jump_staging(r):
         """
         Fallback traversal reaches the target menu, but leaves its choice to the game.
@@ -1628,9 +1512,6 @@ init python:
         _tl_test_cache_transfer(r)
         _tl_test_unfreeze_builds_rollback_log(r)
         _tl_test_snapshot_ctx_isolation(r)
-        _tl_test_legacy_checkpoint_distance(r)
-        _tl_test_unlock_only_returned_choice(r)
-        _tl_test_native_choice_return_staging(r)
         _tl_test_jump_staging(r)
         _tl_test_jump_empty_shadow(r)
         _tl_test_cancel_jump(r)

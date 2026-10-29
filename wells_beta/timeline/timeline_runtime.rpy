@@ -225,7 +225,6 @@ init -1 python:
         store._tl_recently_changed_vars = set()
 
         ast_key, location, node_type = _tl_resolve_node_location()
-        _tl_unlock_returned_choice(ast_key)
 
         ## Snapshot para salto sintético — capturado antes da execução do menu para que get_roots()
         ## ainda não inclua este nó. Armazenado em renpy.game.log._tl_snapshot_cache
@@ -263,18 +262,11 @@ init -1 python:
                     return existing
 
         rollback_id = None
-        rollback_anchor = None
         ## Obtém o identificador de rollback — permite voltar usando RollbackToIdentifier
         ## se este nó ainda estiver no log de rollback.
         try:
             if renpy.game.log and renpy.game.log.current:
-                rollback_entry = renpy.game.log.current
-                rollback_id = getattr(rollback_entry, "identifier", None)
-                ## O SDK 6.99 não expõe identificadores. Guarda a identidade da
-                ## entrada ainda viva do log; o endereço da entrada permite contar
-                ## checkpoints sem interpretar linhas/labels do script compilado.
-                if not callable(getattr(renpy, "get_identifier_checkpoints", None)):
-                    rollback_anchor = id(rollback_entry)
+                rollback_id = renpy.game.log.current.identifier
         except Exception as e:
             _tl_log("Timeline rollback_id failed: {}".format(e))
 
@@ -290,7 +282,6 @@ init -1 python:
             "ast_key"           : ast_key,
             "_location"         : location,
             "_rollback_id"      : rollback_id,
-            "_rollback_anchor"  : rollback_anchor,
         }
         menu_site = _tl_node_menu_site_key(node)
         _tl_log("Timeline menu enter: node={} ast={} site={} opts={} current_type={}".format(
@@ -520,25 +511,19 @@ init 0 python:
 init python:
     def _tl_on_game_start():
         try:
-            _tl_reset_snapshot_cache()
             _tl_clear_replay_state()
             _tl_save_no_screenshot("wf_start")
         except Exception as e:
             _tl_log("Timeline ERROR initial save failed: {}".format(e))
 
     def _tl_on_load():
-        ## Snapshot cache não é serializado junto ao save. Preserve-o apenas durante
-        ## o salto sintético da sessão atual; um load normal inicia cache limpo.
-        is_synthetic = getattr(persistent, "_tl_synthetic_jump", False)
-        if is_synthetic:
-            _tl_init_snapshot_cache()
-        else:
-            _tl_reset_snapshot_cache()
+        _tl_init_snapshot_cache()
 
         ## Limpa somente quando replaying é True e target é None — estado obsoleto
         ## de uma sessão encerrada inesperadamente. Se ambos estiverem definidos, o carregamento da repetição é válido
         ## e não devemos limpar os dados; caso contrário, os menus serão executados com replaying=False e
         ## farão novas capturas de tela.
+        is_synthetic = getattr(persistent, "_tl_synthetic_jump", False)
         if is_synthetic:
             persistent._tl_synthetic_jump = False
             try:

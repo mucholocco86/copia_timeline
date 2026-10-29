@@ -296,8 +296,10 @@ screen wells_tl_route_graph_card_body(graph_node, cw, ch):
         _tl_graph_record = None
         _tl_graph_index = graph_node.get("history_index")
         if _tl_graph_index is not None:
-            _tl_graph_record = next(
-                (n for n in _tl_history if n.get("index") == _tl_graph_index), None)
+            for _tl_graph_candidate in _tl_history:
+                if _tl_graph_candidate.get("index") == _tl_graph_index:
+                    _tl_graph_record = _tl_graph_candidate
+                    break
         _tl_graph_thumb = _tl_node_thumb(_tl_graph_record) if _tl_graph_record else None
         _tl_graph_img = (_tl_graph_record.get("img_name") if _tl_graph_record else None)
         if _tl_graph_img is None:
@@ -368,12 +370,12 @@ screen wells_tl_route_map(panel_width=None):
         _tl_graph = _tl_build_choice_graph()
         _tl_graph_nodes = _tl_graph.get("nodes", [])
         _tl_graph_edges = _tl_graph.get("edges", [])
-        _tl_graph_card_w = wells_ui(190)
-        _tl_graph_thumb_h = int(_tl_graph_card_w * 9 / 16)
-        _tl_graph_card_h = _tl_graph_thumb_h + wells_ui(43)
+        _tl_graph_card_w = wells_ui(240)
+        _tl_graph_thumb_h = int(_tl_graph_card_w * 21 / 32)
+        _tl_graph_card_h = _tl_graph_thumb_h + wells_ui(88)
         _tl_graph_gap_x = wells_ui(68)
         _tl_graph_gap_y = wells_ui(70)
-        _tl_graph_margin = wells_ui(42)
+        _tl_graph_margin = wells_ui(88)
         _tl_graph_by_id = dict((n["id"], n) for n in _tl_graph_nodes)
         _tl_graph_max_col = _WELLS_TL_MAX([n.get("column", 0) for n in _tl_graph_nodes] or [0])
         _tl_graph_max_lane = _WELLS_TL_MAX([n.get("lane", 0) for n in _tl_graph_nodes] or [0])
@@ -476,8 +478,16 @@ screen wells_tl_route_map(panel_width=None):
                 thumb Frame("wells/timeline/gui/v_pino.png", 10, 0) xsize wells_ui(20)
 
             bar:
-                xfill True
                 value XScrollValue("tl_route_map_vp")
+                xsize wells_ui(800) ysize wells_ui(35)
+                idle_right_bar Frame("wells/timeline/gui/barra_vazia.png", 5, 5)
+                hover_right_bar Frame("wells/timeline/gui/barra_vazia.png", 5, 5)
+                idle_left_bar Frame("wells/timeline/gui/barra_cheia.png", 5, 5)
+                hover_left_bar Frame("wells/timeline/gui/barra_cheia.png", 5, 5)
+                thumb "wells/timeline/gui/pino.png"
+                thumb_shadow None
+                thumb_offset 1
+                xalign 0.5
 
 ## -----------------------------------------------------------------------------
 ## Seção 2: ui/wells_tl_debug.rpy

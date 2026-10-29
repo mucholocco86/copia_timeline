@@ -113,12 +113,6 @@ init -2 python:
         persistent._tl_prev_thumb     = None
         persistent._tl_synthetic_jump = False
         persistent._tl_choice_return_pending = False
-        store._tl_native_rollback_checkpoints = None
-        store._tl_native_rollback_force = True
-        try:
-            renpy.game._tl_choice_return_ast_key = None
-        except Exception:
-            pass
         renpy.save_persistent()
 
     ## ── Funções internas da versão 2 ──────────────────────────────────────────────────
@@ -162,92 +156,6 @@ init -2 python:
     def _wf_tl_valid_snap(snap):
         return bool(snap and snap.get("roots") and snap.get("context") is not None)
 
-    def _tl_legacy_rollback_checkpoint_count(log, anchor):
-        """Mirror Ren'Py's identifier distance for a live SDK 6.99 log entry."""
-        if anchor is None:
-            return None
-        try:
-            ## Ren'Py's identifier cache starts at one and counts hard
-            ## checkpoints. SDK 6.99 predates that field, where checkpoint is
-            ## the equivalent boundary. Match the engine's 1-based distance.
-            checkpoints = 1
-            for entry in reversed(getattr(log, "log", ())):
-                if id(entry) == anchor:
-                    return checkpoints
-                if hasattr(entry, "hard_checkpoint"):
-                    is_boundary = bool(entry.hard_checkpoint)
-                else:
-                    is_boundary = bool(getattr(entry, "checkpoint", False))
-                if is_boundary:
-                    checkpoints += 1
-        except Exception:
-            pass
-        return None
-
-    def _tl_native_rollback_checkpoints(node):
-        """Return the native rollback distance to a recorded menu, when available.
-
-        Modern Ren'Py SDKs provide the same checkpoint lookup used by their
-        RollbackToIdentifier action. Ren'Py 6.99 has no identifier API, so its
-        in-memory log entry can be used only while that entry remains present.
-        """
-        if not isinstance(node, dict):
-            return None
-
-        identifier = node.get("_rollback_id")
-        get_checkpoints = getattr(renpy, "get_identifier_checkpoints", None)
-        if callable(get_checkpoints) and identifier is not None:
-            try:
-                checkpoints = get_checkpoints(identifier)
-                if checkpoints is not None and checkpoints > 0:
-                    return checkpoints, "menu"
-            except Exception as exc:
-                _tl_log("Timeline native rollback lookup failed: {}".format(exc))
-            ## With identifier lookup available, a missing identifier is not a
-            ## safe reason to guess from compiled-script line locations.
-            return None
-
-        anchor = node.get("_rollback_anchor")
-        if anchor is None:
-            return None
-
-        try:
-            checkpoints = _tl_legacy_rollback_checkpoint_count(
-                renpy.game.log, anchor)
-            if checkpoints is not None:
-                return checkpoints, True
-        except Exception as exc:
-            _tl_log("Timeline legacy rollback lookup failed: {}".format(exc))
-        return None
-
-    def _tl_arm_choice_return(node):
-        """Remember the AST menu whose native options must remain reselectable."""
-        key = node.get("ast_key") if isinstance(node, dict) else None
-        if isinstance(key, (list, tuple)) and len(key) == 2:
-            renpy.game._tl_choice_return_ast_key = tuple(key)
-            return True
-        renpy.game._tl_choice_return_ast_key = None
-        return False
-
-    def _tl_unlock_returned_choice(ast_key):
-        """Clear fixed rollback only when the recorded target menu is reached."""
-        pending = getattr(renpy.game, "_tl_choice_return_ast_key", None)
-        if not isinstance(pending, (list, tuple)) or not isinstance(ast_key, (list, tuple)):
-            return False
-        if tuple(pending) != tuple(ast_key):
-            return False
-
-        ## URMChoice.Action clears this flag before returning ChoiceReturn. The
-        ## Timeline restores the original menu first, so do it just before the
-        ## native menu interaction is built, and only for that AST menu.
-        try:
-            renpy.game.log.rollback_is_fixed = False
-        except Exception as exc:
-            _tl_log("Timeline choice unlock failed: {}".format(exc))
-        renpy.game._tl_choice_return_ast_key = None
-        _tl_log("Timeline choice unlocked for reselection: ast_key={}".format(tuple(ast_key)))
-        return True
-
     def _wf_tl_find_slot(node_index, hist, context):
         """
         Tier 1: exact pre-save at target index.
@@ -287,29 +195,7 @@ init -2 python:
         hist    = list(getattr(store, "_tl_history", []))
         context = list(store._tl_context)
         try:
-            ## Não reutiliza uma distância nativa antiga se o novo destino cair
-            ## no caminho de compatibilidade por snapshot/pré-save.
-            store._tl_native_rollback_checkpoints = None
-            store._tl_native_rollback_force = True
-            target_node = next((n for n in hist if n.get("index") == node_index), None)
-            _tl_arm_choice_return(target_node)
             _wf_tl_write_recovery()
-            native_target = _tl_native_rollback_checkpoints(target_node)
-            if native_target is not None:
-                checkpoints, force = native_target
-                persistent._tl_replaying = False
-                persistent._tl_replay_path = None
-                persistent._tl_replay_target = None
-                persistent._tl_prev_thumb = None
-                persistent._tl_choice_return_pending = True
-                persistent._tl_synthetic_jump = False
-                store._tl_native_rollback_checkpoints = checkpoints
-                store._tl_native_rollback_force = force
-                renpy.save_persistent()
-                _tl_log("Timeline native rollback: menu={} checkpoints={}".format(
-                    node_index, checkpoints))
-                return
-
             snap = _tl_get_menu_snapshot(node_index)
             if _wf_tl_valid_snap(snap):
                 ## The snapshot is taken immediately before the target menu. Restore it
@@ -751,30 +637,13 @@ init -2 python:
         c["menu"] = _WELLS_TL_PLAIN_DICT()
         return c
 
-    def _tl_drop_saved_snapshot_cache():
-        """Remove the legacy cache from RollbackLog before a save can pickle it."""
-        try:
-            if hasattr(renpy.game.log, "_tl_snapshot_cache"):
-                delattr(renpy.game.log, "_tl_snapshot_cache")
-        except Exception:
-            pass
-
     def _tl_get_snapshot_cache():
-        ## RollbackLog is serialized with every Ren'Py save. Keep full snapshots on the
-        ## runtime game module instead, so the save does not recursively pickle them.
-        _tl_drop_saved_snapshot_cache()
-        if not hasattr(renpy.game, "_tl_snapshot_cache"):
-            renpy.game._tl_snapshot_cache = _tl_make_cache()
-        return renpy.game._tl_snapshot_cache
-
-    def _tl_reset_snapshot_cache():
-        """Discard snapshots from a different loaded game state."""
-        _tl_drop_saved_snapshot_cache()
-        renpy.game._tl_snapshot_cache = _tl_make_cache()
-        return renpy.game._tl_snapshot_cache
+        if not hasattr(renpy.game.log, "_tl_snapshot_cache"):
+            renpy.game.log._tl_snapshot_cache = _tl_make_cache()
+        return renpy.game.log._tl_snapshot_cache
 
     def _tl_init_snapshot_cache():
-        """Ensure the runtime-only snapshot cache exists after loading."""
+        """Ensure cache exists on the loaded log. Called by _tl_on_load."""
         _tl_get_snapshot_cache()
 
     def _tl_capture_snapshot():
@@ -832,10 +701,14 @@ init -2 python:
         return _tl_get_snapshot_cache()["menu"].get(node_index)
 
     def _tl_transfer_snapshot_cache(new_log):
-        """Keep menu snapshots in runtime memory, outside the serialized RollbackLog."""
-        cache = _tl_get_snapshot_cache()
-        _tl_log("Timeline unfreeze: cache runtime preservado; menus={}".format(
-            len(cache.get("menu", {}))))
+        """Copy cache from current renpy.game.log to new_log."""
+        old_cache = getattr(renpy.game.log, "_tl_snapshot_cache", None)
+        if old_cache is not None:
+            new_log._tl_snapshot_cache = old_cache
+            _tl_log("Timeline unfreeze: cache copiado; menus={}".format(
+                len(old_cache.get("menu", {}))))
+        else:
+            _tl_log("Timeline unfreeze: no cache to copy (old_log had none)")
 
     def _tl_unfreeze_from_snapshot(snap):
         """
