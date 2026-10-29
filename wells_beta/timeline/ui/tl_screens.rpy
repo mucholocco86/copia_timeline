@@ -414,6 +414,7 @@ screen wells_tl_route_map(panel_width=None):
 
             viewport:
                 id "tl_route_map_vp"
+                xinitial 0.0
                 xfill True
                 yfill True
                 mousewheel True
