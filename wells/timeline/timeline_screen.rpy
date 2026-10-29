@@ -54,8 +54,8 @@ screen wells_timeline():
 
     python:
         _tl_window_small = renpy.variant("small")
-        _tl_window_w = wells_ui(1800 if _tl_window_small else 1650)
-        _tl_window_h = wells_ui(1150 if _tl_window_small else 920)
+        _tl_window_w = wells_ui(1800 if _tl_window_small else 1450)
+        _tl_window_h = wells_ui(1150 if _tl_window_small else 820)
         _tl_window_padding = (wells_ui_pad(60, 50) if _tl_window_small
                               else wells_ui_pad(50, 40))
         _tl_content_w = max(1, _tl_window_w - wells_ui(120 if _tl_window_small else 100))
@@ -69,7 +69,7 @@ screen wells_timeline():
         top_padding _tl_window_padding[1]
         right_padding _tl_window_padding[2]
         bottom_padding _tl_window_padding[3]
-        background Frame("wells/timeline/gui/frame.png", wells_ui(10), wells_ui(10))
+        background Frame("wells/timeline/gui/frame.png", 10, 10)
 
         vbox:
             xfill True yfill True
@@ -112,7 +112,7 @@ screen wells_timeline():
                         yalign 0.5
 
                         button:
-                            idle_background Frame("wells/timeline/gui/Button-idle.png", wells_ui(5), wells_ui(5))
+                            idle_background Frame("wells/timeline/gui/Button-idle.png", 5, 5)
                             hover_background Frame("wells/timeline/gui/Button-hover.png", wells_ui(5), wells_ui(5))
                             left_padding wells_ui_signed(18)
                             top_padding wells_ui_signed(9)

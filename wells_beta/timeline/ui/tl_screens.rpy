@@ -440,26 +440,26 @@ screen wells_tl_route_map(panel_width=None):
 
                         frame:
                             xpos _tl_gsx
-                            ypos _tl_gsy - wells_ui(2)
+                            ypos _tl_gsy - 2
                             xsize _WELLS_TL_MAX(1, _tl_gmx - _tl_gsx)
-                            ysize wells_ui(4)
+                            ysize 4
                             xpadding 0
                             ypadding 0
                             background Solid(_tl_gcolor)
                         if _tl_gsy != _tl_gey:
                             frame:
-                                xpos _tl_gmx - wells_ui(2)
+                                xpos _tl_gmx - 2
                                 ypos _WELLS_TL_MIN(_tl_gsy, _tl_gey)
-                                xsize wells_ui(4)
+                                xsize 4
                                 ysize _WELLS_TL_MAX(1, abs(_tl_gey - _tl_gsy))
                                 xpadding 0
                                 ypadding 0
                                 background Solid(_tl_gcolor)
                         frame:
                             xpos _tl_gmx
-                            ypos _tl_gey - wells_ui(2)
+                            ypos _tl_gey - 2
                             xsize _WELLS_TL_MAX(1, _tl_gex - _tl_gmx)
-                            ysize wells_ui(4)
+                            ysize 4
                             xpadding 0
                             ypadding 0
                             background Solid(_tl_gcolor)
@@ -475,18 +475,18 @@ screen wells_tl_route_map(panel_width=None):
                 value YScrollValue("tl_route_map_vp")
                 top_bar Frame("wells/timeline/gui/vertical_cheia.png", 0, 0)
                 bottom_bar Frame("wells/timeline/gui/vertical_vazia.png", 0, 0)
-                thumb Frame("wells/timeline/gui/v_pino.png", wells_ui(10), wells_ui(0)) xsize wells_ui(20)
+                thumb Frame("wells/timeline/gui/v_pino.png", 10, 0 xsize wells_ui(20)
 
             bar:
                 value XScrollValue("tl_route_map_vp")
-                xsize wells_ui(800) ysize wells_ui(35)
-                idle_right_bar Frame("wells/timeline/gui/barra_vazia.png", wells_ui(5), wells_ui(5))
+                xsize wells_ui(800) ysize wells_ui(25)
+                idle_right_bar Frame("wells/timeline/gui/barra_vazia.png", 5, 5)
                 hover_right_bar Frame("wells/timeline/gui/barra_vazia.png", wells_ui(5), wells_ui(5))
                 idle_left_bar Frame("wells/timeline/gui/barra_cheia.png", wells_ui(5), wells_ui(5))
                 hover_left_bar Frame("wells/timeline/gui/barra_cheia.png", wells_ui(5), wells_ui(5))
                 thumb "wells/timeline/gui/pino.png"
                 thumb_shadow None
-                thumb_offset wells_ui(1)
+                thumb_offset 1
                 xalign 0.5
 
 ## -----------------------------------------------------------------------------
