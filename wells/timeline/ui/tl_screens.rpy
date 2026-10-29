@@ -38,7 +38,7 @@ screen wells_tl_thumbnail_frame(cw, th, img_disp=None, locked=False, taken=True,
             text fallback_text:
                 font "wells/fonts/Roboto-Regular.ttf"
                 bold True
-                size 38
+                size wells_ui(38)
                 color "#2a2820"
                 xalign 0.5 yalign 0.5
 
@@ -48,7 +48,7 @@ screen wells_tl_thumbnail_frame(cw, th, img_disp=None, locked=False, taken=True,
                 yfill True
                 background Solid("#000000bb")
             if _tl_lock_displayable:
-                add Transform(_tl_lock_displayable, xsize=36, ysize=36, fit="contain"):
+                add Transform(_tl_lock_displayable, xsize=wells_ui(36), ysize=wells_ui(36), fit="contain"):
                     xalign 0.5
                     yalign 0.5
         elif not taken:
@@ -58,7 +58,7 @@ screen wells_tl_thumbnail_frame(cw, th, img_disp=None, locked=False, taken=True,
                 background Solid("#000000aa")
 
         if highlighted:
-            add Transform(Solid("#e8c97e"), xsize=cw, ysize=3):
+            add Transform(Solid("#e8c97e"), xsize=cw, ysize=wells_ui(3)):
                 yalign 0.0
 
 
@@ -66,7 +66,7 @@ screen wells_tl_thumbnail_frame(cw, th, img_disp=None, locked=False, taken=True,
 ## Tela do cartão
 ## =============================================================================
 
-screen wells_tl_card(node, cw=300):
+screen wells_tl_card(node, cw=wells_ui(300)):
 
     python:
         _tl_is_current = (node["index"] == len(_tl_history) - 1 and
@@ -108,7 +108,7 @@ screen wells_tl_card(node, cw=300):
 ## Conteúdo do cartão anterior
 ## =============================================================================
 
-screen wells_tl_card_past(node, chosen_label, has_new, cw=300):
+screen wells_tl_card_past(node, chosen_label, has_new, cw=wells_ui(300)):
 
     vbox:
         xsize cw
@@ -116,26 +116,26 @@ screen wells_tl_card_past(node, chosen_label, has_new, cw=300):
 
         frame:
             xsize cw
-            xpadding 12
-            ypadding 10
+            xpadding wells_ui(12)
+            ypadding wells_ui(10)
             background Solid("#00000060")
 
             hbox:
-                xsize cw - 24
-                spacing 8
+                xsize cw - wells_ui(24)
+                spacing wells_ui(8)
                 yalign 0.5
 
                 text (chosen_label or "—"):
                     font "wells/fonts/Roboto-Regular.ttf"
-                    size 21
+                    size wells_ui(21)
                     color "#f8f4ecec"
-                    xmaximum cw - 28
+                    xmaximum cw - wells_ui(28)
                     yalign 0.5
 
         frame:
             xpadding 0
             ypadding 0
-            xsize cw ysize 1
+            xsize cw ysize wells_ui(1)
             background Solid("#e6161691")
 
         python:
@@ -147,31 +147,31 @@ screen wells_tl_card_past(node, chosen_label, has_new, cw=300):
 
             frame:
                 xsize cw // 2
-                ysize 46
-                left_padding 12
+                ysize wells_ui(46)
+                left_padding wells_ui(12)
                 top_padding 0
-                right_padding 8
+                right_padding wells_ui(8)
                 bottom_padding 0
                 background Solid("#00000055")
 
                 if _tl_diverged:
                     text "⎇":
                         font "wells/fonts/Roboto-Regular.ttf"
-                        size 21
+                        size wells_ui(21)
                         color "#9a9183"
                         yalign 0.5
                         italic False
                 elif has_new:
                     text "●":
                         font "wells/fonts/Roboto-Regular.ttf"
-                        size 14
+                        size wells_ui(14)
                         color "#f8f4ecec"
                         yalign 0.5
                         italic False
 
             button:
                 xsize cw // 2
-                ysize 46
+                ysize wells_ui(46)
                 xpadding 0
                 ypadding 0
                 background Solid("#00000060")
@@ -180,7 +180,7 @@ screen wells_tl_card_past(node, chosen_label, has_new, cw=300):
 
                 text "Todas as opções ▾":
                     font "wells/fonts/Roboto-Regular.ttf"
-                    size 21
+                    size wells_ui(21)
                     color "#f8f4ecec"
                     xalign 0.5 yalign 0.5
 
@@ -202,42 +202,42 @@ screen wells_tl_card_option_row(node, i, opt, cw, shadow_ci):
 
         frame:
             xsize cw
-            xpadding 12
-            ypadding 8
+            xpadding wells_ui(12)
+            ypadding wells_ui(8)
             background Solid("#00000033")
 
             vbox:
-                xsize cw - 24
-                spacing 3
+                xsize cw - wells_ui(24)
+                spacing wells_ui(3)
 
                 hbox:
-                    xsize cw - 24
-                    spacing 8
+                    xsize cw - wells_ui(24)
+                    spacing wells_ui(8)
                     yalign 0.5
 
                     ## A seta de auxílio à repetição tem prioridade sobre o indicador de item não visto.
                     if _tl_is_aid:
                         text "→":
                             font "wells/fonts/Roboto-Regular.ttf"
-                            size 21
+                            size wells_ui(21)
                             color "#a5a3a1"
                             yalign 0.5
                             italic False
                     elif _tl_show_dot:
                         text "●":
                             font "wells/fonts/Roboto-Regular.ttf"
-                            size 14
+                            size wells_ui(14)
                             color "#a5a3a1d0"
                             yalign 0.5
                             italic False
                     else:
-                        null xsize 14
+                        null xsize wells_ui(14)
 
                     text opt:
                         font "wells/fonts/Roboto-Regular.ttf"
-                        size 21
+                        size wells_ui(21)
                         color "#f0ece4"
-                        xmaximum cw - 44
+                        xmaximum cw - wells_ui(44)
                         yalign 0.5
 
 
@@ -245,7 +245,7 @@ screen wells_tl_card_option_row(node, i, opt, cw, shadow_ci):
             frame:
                 xpadding 0
                 ypadding 0
-                xsize cw ysize 1
+                xsize cw ysize wells_ui(1)
                 background Solid("#e6161691")
 
 
@@ -253,7 +253,7 @@ screen wells_tl_card_option_row(node, i, opt, cw, shadow_ci):
 ## Conteúdo do cartão atual — todas as opções em linhas
 ## =============================================================================
 
-screen wells_tl_card_current(node, cw=300):
+screen wells_tl_card_current(node, cw=wells_ui(300)):
 
     python:
         _shadow_ci = _tl_shadow_match(_tl_shadow_path or [], node)
@@ -268,21 +268,21 @@ screen wells_tl_card_current(node, cw=300):
         frame:
             xsize cw
             left_padding 0
-            top_padding 6
-            right_padding 10
-            bottom_padding 6
+            top_padding wells_ui(6)
+            right_padding wells_ui(10)
+            bottom_padding wells_ui(6)
             background None
 
             frame:
-                xpadding 10
-                ypadding 5
+                xpadding wells_ui(10)
+                ypadding wells_ui(5)
                 background Solid("#2e2e2edc")
                 xalign 0.0
 
                 text "AGORA":
                     font "wells/fonts/Roboto-Regular.ttf"
                     bold True
-                    size 21
+                    size wells_ui(21)
                     color "#adacab"
                     italic False
 
@@ -322,29 +322,29 @@ screen wells_tl_route_graph_card_body(graph_node, cw, ch):
     frame:
         xsize cw
         ysize ch
-        xpadding 3
-        ypadding 3
+        xpadding wells_ui(3)
+        ypadding wells_ui(3)
         background Solid("#c91b1b" if graph_node.get("active") else "#6c6c6c")
 
         vbox:
             xfill True
             spacing 0
             use wells_tl_thumbnail_frame(
-                cw - 6, _tl_graph_thumb_h, img_disp=_tl_graph_img_disp,
+                cw - wells_ui(6), _tl_graph_thumb_h, img_disp=_tl_graph_img_disp,
                 fallback_text="{:02d}".format(graph_node.get("column", 0) + 1))
 
             frame:
                 xfill True
                 ysize ch - _tl_graph_thumb_h - 6
-                xpadding 8
-                ypadding 5
+                xpadding wells_ui(8)
+                ypadding wells_ui(5)
                 background Solid("#101010e8")
 
                 text _tl_graph_label:
                     font "wells/fonts/Roboto-Regular.ttf"
-                    size 17
+                    size wells_ui(17)
                     color "#f0ece4"
-                    xmaximum cw - 20
+                    xmaximum cw - wells_ui(20)
                     yalign 0.5
 
 
@@ -402,7 +402,7 @@ screen wells_tl_route_map(panel_width=None):
             background None
             text "As rotas aparecerão aqui conforme você fizer escolhas.":
                 font "wells/fonts/Roboto-Regular.ttf"
-                size 21
+                size wells_ui(21)
                 color "#9a9183"
                 xalign 0.5
                 yalign 0.5
@@ -440,26 +440,26 @@ screen wells_tl_route_map(panel_width=None):
 
                         frame:
                             xpos _tl_gsx
-                            ypos _tl_gsy - 2
+                            ypos _tl_gsy - wells_ui(2)
                             xsize _WELLS_TL_MAX(1, _tl_gmx - _tl_gsx)
-                            ysize 4
+                            ysize wells_ui(4)
                             xpadding 0
                             ypadding 0
                             background Solid(_tl_gcolor)
                         if _tl_gsy != _tl_gey:
                             frame:
-                                xpos _tl_gmx - 2
+                                xpos _tl_gmx - wells_ui(2)
                                 ypos _WELLS_TL_MIN(_tl_gsy, _tl_gey)
-                                xsize 4
+                                xsize wells_ui(4)
                                 ysize _WELLS_TL_MAX(1, abs(_tl_gey - _tl_gsy))
                                 xpadding 0
                                 ypadding 0
                                 background Solid(_tl_gcolor)
                         frame:
                             xpos _tl_gmx
-                            ypos _tl_gey - 2
+                            ypos _tl_gey - wells_ui(2)
                             xsize _WELLS_TL_MAX(1, _tl_gex - _tl_gmx)
-                            ysize 4
+                            ysize wells_ui(4)
                             xpadding 0
                             ypadding 0
                             background Solid(_tl_gcolor)
@@ -475,18 +475,18 @@ screen wells_tl_route_map(panel_width=None):
                 value YScrollValue("tl_route_map_vp")
                 top_bar Frame("wells/timeline/gui/vertical_cheia.png", 0, 0)
                 bottom_bar Frame("wells/timeline/gui/vertical_vazia.png", 0, 0)
-                thumb Frame("wells/timeline/gui/v_pino.png", 10, 0) xsize wells_ui(20)
+                thumb Frame("wells/timeline/gui/v_pino.png", wells_ui(10), wells_ui(0)) xsize wells_ui(20)
 
             bar:
                 value XScrollValue("tl_route_map_vp")
                 xsize wells_ui(800) ysize wells_ui(35)
-                idle_right_bar Frame("wells/timeline/gui/barra_vazia.png", 5, 5)
-                hover_right_bar Frame("wells/timeline/gui/barra_vazia.png", 5, 5)
-                idle_left_bar Frame("wells/timeline/gui/barra_cheia.png", 5, 5)
-                hover_left_bar Frame("wells/timeline/gui/barra_cheia.png", 5, 5)
+                idle_right_bar Frame("wells/timeline/gui/barra_vazia.png", wells_ui(5), wells_ui(5))
+                hover_right_bar Frame("wells/timeline/gui/barra_vazia.png", wells_ui(5), wells_ui(5))
+                idle_left_bar Frame("wells/timeline/gui/barra_cheia.png", wells_ui(5), wells_ui(5))
+                hover_left_bar Frame("wells/timeline/gui/barra_cheia.png", wells_ui(5), wells_ui(5))
                 thumb "wells/timeline/gui/pino.png"
                 thumb_shadow None
-                thumb_offset 1
+                thumb_offset wells_ui(1)
                 xalign 0.5
 
 ## -----------------------------------------------------------------------------
@@ -510,24 +510,24 @@ screen wells_tl_debug():
 
     drag:
         drag_name "wells_tl_debug"
-        xpos 10 ypos 10
+        xpos wells_ui_signed(10) ypos wells_ui_signed(10)
 
         frame:
             background Solid("#000000dd")
-            xpadding 14
-            ypadding 12
-            xsize 440
+            xpadding wells_ui(14)
+            ypadding wells_ui(12)
+            xsize wells_ui(440)
 
             vbox:
                 xfill True
-                spacing 5
+                spacing wells_ui(5)
 
                 hbox:
                     xfill True
                     text "TIMELINE — DEPURAÇÃO":
                         font "wells/fonts/Roboto-Regular.ttf"
                         bold True
-                        size 21
+                        size wells_ui(21)
                         color "#a5b4fc"
                         xfill True
                     button:
@@ -539,25 +539,25 @@ screen wells_tl_debug():
                         action ToggleVariable("_tl_debug_visible")
                         text "✕":
                             font "wells/fonts/Roboto-Regular.ttf"
-                            size 21
+                            size wells_ui(21)
                             color "#64748b"
                             hover_color "#f1f5f9"
 
-                null ysize 4
+                null ysize wells_ui(4)
                 use wells_tl_dbrow("RenPy", "{}.{}.{}".format(renpy.version_tuple[0], renpy.version_tuple[1], renpy.version_tuple[2]))
                 use wells_tl_dbrow("node_count",  str(_tl_node_count))
                 use wells_tl_dbrow("history len", str(len(_tl_history)))
                 use wells_tl_dbrow("ast_ready",   str(_tl_ast_ready))
                 use wells_tl_dbrow("ast_menus",   str(len(_tl_ast_map)))
 
-                null ysize 4
+                null ysize wells_ui(4)
                 if _tl_history:
                     python:
                         _dbnode = _tl_history[-1]
                     text "ÚLTIMO NÓ":
                         font "wells/fonts/Roboto-Regular.ttf"
                         bold True
-                        size 16
+                        size wells_ui(16)
                         color "#fb923c"
                     use wells_tl_dbrow("prompt",  (_dbnode["prompt"] or "(none)")[:50])
                     use wells_tl_dbrow("chosen",  str(_dbnode.get("chosen_index")))
@@ -565,47 +565,47 @@ screen wells_tl_debug():
                     use wells_tl_dbrow("thumb",   "{}b".format(len(_tl_node_thumb(_dbnode) or b"")) if _tl_node_thumb(_dbnode) else "none")
                     use wells_tl_dbrow("ast_key", str(_dbnode.get("ast_key")))
 
-                null ysize 8
+                null ysize wells_ui(8)
                 textbutton "Exportar AST da CFG (tudo)":
                     background Solid("#1e293b")
                     hover_background Solid("#334155")
-                    xpadding 8
-                    ypadding 6
+                    xpadding wells_ui(8)
+                    ypadding wells_ui(6)
                     action Function(_tl_cfg_dump_ast)
                     text_font "wells/fonts/Roboto-Regular.ttf"
-                    text_size 14
+                    text_size wells_ui(14)
                     text_color "#7dd3fc"
                     text_hover_color "#ffffff"
 
-                null ysize 4
+                null ysize wells_ui(4)
                 textbutton "Recuperar ast_keys do histórico":
                     background Solid("#1e293b")
                     hover_background Solid("#334155")
-                    xpadding 8
-                    ypadding 6
+                    xpadding wells_ui(8)
+                    ypadding wells_ui(6)
                     action Function(_tl_salvage_history_ast_keys)
                     text_font "wells/fonts/Roboto-Regular.ttf"
-                    text_size 14
+                    text_size wells_ui(14)
                     text_color "#7dd3fc"
                     text_hover_color "#ffffff"
 
-                null ysize 4
+                null ysize wells_ui(4)
                 text "Use o botão ✕ para ocultar":
                     font "wells/fonts/Roboto-Regular.ttf"
-                    size 14
+                    size wells_ui(14)
                     color "#334155"
 
 screen wells_tl_dbrow(label, value):
     hbox:
-        spacing 8
+        spacing wells_ui(8)
         text (label + ":"):
             font "wells/fonts/Roboto-Regular.ttf"
-            size 12
+            size wells_ui(12)
             color "#64748b"
-            xminimum 120
+            xminimum wells_ui(120)
         text value:
             font "wells/fonts/Roboto-Regular.ttf"
-            size 14
+            size wells_ui(14)
             color "#e2e8f0"
 
 ## -----------------------------------------------------------------------------
@@ -647,16 +647,16 @@ screen wells_tl_ghost_card(ghost, bi, cw, th):
         ## Barra inferior: rótulo da condição
         frame:
             xsize cw
-            xpadding 12
-            ypadding 8
+            xpadding wells_ui(12)
+            ypadding wells_ui(8)
             background Solid("#00000044")
 
             text _gbc_cond:
                 font "wells/fonts/Roboto-Regular.ttf"
-                size 21
+                size wells_ui(21)
                 color "#f0ece4"
                 substitute False
-                xmaximum cw - 24
+                xmaximum cw - wells_ui(24)
                 yalign 0.5
 
 
@@ -673,7 +673,7 @@ screen wells_tl_ghost_rows(ghost_nodes, card_w, cols, spacing, reverse_clusters=
                 xpadding 0
                 ypadding 0
                 xsize cols * card_w + (cols - 1) * spacing
-                ysize 3
+                ysize wells_ui(3)
                 background Solid("#e6161691")
             python:
                 _tl_gbc_th = int(card_w * 9 / 16)
@@ -730,14 +730,14 @@ screen wells_tl_ghost_rows(ghost_nodes, card_w, cols, spacing, reverse_clusters=
                                         xpadding 0
                                         ypadding 0
                                         xsize spacing
-                                        ysize _tl_gbc_th + 42
+                                        ysize _tl_gbc_th + wells_ui(42)
                                         background Solid("#00000000")
                                 else:
                                     frame:
                                         xpadding 0
                                         ypadding 0
                                         xsize spacing
-                                        ysize _tl_gbc_th + 42
+                                        ysize _tl_gbc_th + wells_ui(42)
                                         background Solid("#e8c97e2a")
 
                             use wells_tl_ghost_card(_gbc_ghost, _gbc_bi, card_w, _tl_gbc_th)
@@ -776,56 +776,56 @@ screen wells_tl_modal_option_row(node, i, opt, m_w, opt_count):
 
         frame:
             xfill True
-            xpadding 16
-            ypadding 12
+            xpadding wells_ui(16)
+            ypadding wells_ui(12)
             background Solid("#00000035")
 
             hbox:
                 xfill True
-                spacing 10
+                spacing wells_ui(10)
                 yalign 0.5
 
                 if _tl_is_chosen:
                     text "→":
                         font "wells/fonts/Roboto-Regular.ttf"
-                        size 21
+                        size wells_ui(21)
                         color "#f0ece4"
                         yalign 0.5
                 elif _tl_is_aid:
                     text "→":
                         font "wells/fonts/Roboto-Regular.ttf"
-                        size 21
+                        size wells_ui(21)
                         color "#9a9183"
                         yalign 0.5
                         italic False
                 elif _tl_show_dot:
                     text "●":
                         font "wells/fonts/Roboto-Regular.ttf"
-                        size 14
+                        size wells_ui(14)
                         color "#e8c97e"
                         yalign 0.5
                         italic False
                 else:
-                    null xsize 13
+                    null xsize wells_ui(13)
 
                 text opt:
                     font "wells/fonts/Roboto-Regular.ttf"
-                    size 21
+                    size wells_ui(21)
                     color "#f0ece4"
-                    xmaximum m_w - 60
+                    xmaximum m_w - wells_ui(60)
                     yalign 0.5
 
         if i < opt_count - 1:
             frame:
-                xfill True ysize 2
-                xpadding 20
+                xfill True ysize wells_ui(2)
+                xpadding wells_ui(20)
                 ypadding 0
                 background None
 
                 frame:
                     xpadding 0
                     ypadding 0
-                    xfill True ysize 1
+                    xfill True ysize wells_ui(1)
                     background Solid("#e6161691")
 
 
@@ -848,8 +848,8 @@ screen wells_tl_modal(node):
             action SetVariable("_tl_modal_node", None)
 
     python:
-        _tl_m_w         = 500
-        _tl_m_pad       = 28
+        _tl_m_w         = wells_ui(500)
+        _tl_m_pad       = wells_ui(28)
         _tl_m_img_name  = node.get("img_name")
         _tl_m_thumb     = _tl_node_thumb(node)
         _tl_m_use_thumb_first = bool(_tl_m_thumb)
@@ -863,15 +863,15 @@ screen wells_tl_modal(node):
         if _tl_m_img_disp is None and _tl_m_thumb:
             ## Imagens dinâmicas/compostas usam a captura do momento da escolha.
             _tl_m_tdisp = _tl_thumb_displayable(_tl_m_thumb, node["index"])
-        _tl_m_row_h        = 52
+        _tl_m_row_h        = wells_ui(52)
         _tl_m_opt_count    = len(node.get("options", []))
-        _tl_m_list_h       = _tl_m_opt_count * (_tl_m_row_h + 2)
-        _tl_m_max_list     = 300
+        _tl_m_list_h       = _tl_m_opt_count * (_tl_m_row_h + wells_ui(2))
+        _tl_m_max_list     = wells_ui(300)
         _tl_m_needs_scroll = _tl_m_list_h > _tl_m_max_list
 
 
     frame:
-        xsize _tl_m_w + 32
+        xsize _tl_m_w + wells_ui(32)
         xalign 0.5
         yalign 0.45
         background None
@@ -881,8 +881,8 @@ screen wells_tl_modal(node):
         frame:
             xfill True
             background Solid("#111111b7")
-            xpadding 28
-            ypadding 16
+            xpadding wells_ui(28)
+            ypadding wells_ui(16)
 
             vbox:
                 xfill True
@@ -890,29 +890,29 @@ screen wells_tl_modal(node):
 
                 frame:
                     xfill True
-                    xpadding 8
-                    ypadding 2
+                    xpadding wells_ui(8)
+                    ypadding wells_ui(2)
                     background None
 
                     button:
                         xalign 1.0
                         background None
                         hover_background Solid("#6e6e6e14")
-                        xpadding 12
-                        ypadding 6
+                        xpadding wells_ui(12)
+                        ypadding wells_ui(6)
                         action SetVariable("_tl_modal_node", None)
 
                         text "Fechar":
                             font "wells/fonts/Roboto-Regular.ttf"
-                            size 21
+                            size wells_ui(21)
                             color "#c8c0b4"
                             hover_color "#2bff00"
                             italic False
 
                 frame:
                     xfill True
-                    xpadding 28
-                    ypadding 16
+                    xpadding wells_ui(28)
+                    ypadding wells_ui(16)
                     background None
 
                     vbox:
@@ -937,27 +937,27 @@ screen wells_tl_modal(node):
                         frame:
                             xfill True
                             left_padding 0
-                            top_padding 28
+                            top_padding wells_ui(28)
                             right_padding 0
-                            bottom_padding 12
+                            bottom_padding wells_ui(12)
                             background None
 
                         text "Escolhas desta cena":
                                 font "wells/fonts/Roboto-Regular.ttf"
                                 bold True
-                                size 28
+                                size wells_ui(28)
                                 color "#fafaf9"
 
                         frame:
                             xpadding 0
                             ypadding 0
-                            xfill True ysize 3
+                            xfill True ysize wells_ui(3)
                             background Solid("#e6161691")
 
                         frame:
                             xpadding 0
                             ypadding 0
-                            xfill True ysize 10
+                            xfill True ysize wells_ui(10)
                             background None
 
                         if _tl_m_needs_scroll:
@@ -982,21 +982,21 @@ screen wells_tl_modal(node):
                                 for _i, _opt in enumerate(node["options"]):
                                     use wells_tl_modal_option_row(node, _i, _opt, _tl_m_w, _tl_m_opt_count)
 
-                        null ysize 14
+                        null ysize wells_ui(14)
 
                         button:
                             xfill True
-                            xpadding 14
-                            ypadding 10
-                            background Frame("wells/timeline/gui/Button-idle.png", 5, 5)
-                            hover_background Frame("wells/timeline/gui/Button-hover.png", 5, 5)
+                            xpadding wells_ui(14)
+                            ypadding wells_ui(10)
+                            background Frame("wells/timeline/gui/Button-idle.png", wells_ui(5), wells_ui(5))
+                            hover_background Frame("wells/timeline/gui/Button-hover.png", wells_ui(5), wells_ui(5))
                             action [Function(_tl_jump, node["index"], None),
                                     Hide("wells_tl_modal"), Hide("wells_timeline"),
                                     Jump("wells_tl_do_load")]
 
                             text "Voltar à escolha no jogo":
                                 font "wells/fonts/Roboto-Regular.ttf"
-                                size 21
+                                size wells_ui(21)
                                 color "#f0ece4"
                                 hover_color "#ffffff"
                                 xalign 0.5
@@ -1034,11 +1034,11 @@ screen wells_tl_notify(message):
         xalign 0.5
         yalign 0.05
         background Solid("#000000bb")
-        xpadding 14
-        ypadding 10
+        xpadding wells_ui(14)
+        ypadding wells_ui(10)
         text "[message!t]":
             font "wells/fonts/Roboto-Regular.ttf"
-            size 21
+            size wells_ui(21)
             color "#f0ece4"
             outlines []
             xalign 0.5
@@ -1091,25 +1091,25 @@ screen wells_tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
 
             vbox:
                 xalign 0.5 yalign 0.5
-                spacing 10
+                spacing wells_ui(10)
 
                 text "Nenhuma variável de rota foi rastreada ainda.":
                     font "wells/fonts/Roboto-Regular.ttf"
                     bold True
-                    size 21
+                    size wells_ui(21)
                     color "#f0ece4"
                     xalign 0.5
 
                 text "As variáveis de rota são detectadas nos scripts do jogo na primeira inicialização.":
                     font "wells/fonts/Roboto-Regular.ttf"
-                    size 21
+                    size wells_ui(21)
                     color "#9a9183"
                     xalign 0.5
 
     else:
         side "c r":
             xfill True yfill True
-            spacing 18
+            spacing wells_ui(18)
 
             viewport:
                 id "tl_route_vp"
@@ -1127,7 +1127,7 @@ screen wells_tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
 
                     vbox:
                         xfill True
-                        spacing 4
+                        spacing wells_ui(4)
 
                         ## ── Barra de etiquetas — linhas calculadas em Python ─────────────────
                         python:
@@ -1168,28 +1168,28 @@ screen wells_tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
                                             ## Metade da chave
                                             frame:
                                                 background Solid(_chip_key_bg)
-                                                xpadding 10
-                                                ypadding 6
+                                                xpadding wells_ui(10)
+                                                ypadding wells_ui(6)
                                                 xmaximum _tl_key_w
                                                 yminimum _tl_chip_h
 
                                                 text _chip_key_label:
                                                     font "wells/fonts/Roboto-Regular.ttf"
-                                                    size 21
+                                                    size wells_ui(21)
                                                     color "#c8c0b4"
                                                     yalign 0.5
 
                                             ## Metade do valor
                                             frame:
                                                 background Solid("#ffffff14")
-                                                xpadding 10
-                                                ypadding 6
+                                                xpadding wells_ui(10)
+                                                ypadding wells_ui(6)
                                                 xmaximum _tl_val_w
                                                 yminimum _tl_chip_h
 
                                                 text _chip_val_label:
                                                     font "wells/fonts/Roboto-Regular.ttf"
-                                                    size 21
+                                                    size wells_ui(21)
                                                     color "#f0ece4"
                                                     yalign 0.5
 
@@ -1199,14 +1199,14 @@ screen wells_tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
                                 button:
                                     background Solid("#ffffff14")
                                     hover_background Solid("#ffffff28")
-                                    xpadding 10
-                                    ypadding 6
+                                    xpadding wells_ui(10)
+                                    ypadding wells_ui(6)
                                     yminimum _tl_chip_h
                                     action SetScreenVariable("tl_route_expanded", True)
 
                                     text "Ver mais ({})".format(_hidden_count):
                                         font "wells/fonts/Roboto-Regular.ttf"
-                                        size 21
+                                        size wells_ui(21)
                                         color "#9a9183"
                                         yalign 0.5
 
@@ -1216,21 +1216,21 @@ screen wells_tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
                                 button:
                                     background Solid("#ffffff14")
                                     hover_background Solid("#ffffff28")
-                                    xpadding 10
-                                    ypadding 6
+                                    xpadding wells_ui(10)
+                                    ypadding wells_ui(6)
                                     yminimum _tl_chip_h
                                     action SetScreenVariable("tl_route_expanded", False)
 
                                     text "Mostrar menos":
                                         font "wells/fonts/Roboto-Regular.ttf"
-                                        size 21
+                                        size wells_ui(21)
                                         color "#9a9183"
                                         yalign 0.5
 
                         frame:
                             background None
                             xfill True
-                            ysize 24
+                            ysize wells_ui(24)
 
                         ## ── Cartões de ramos futuros ───────────────────────────────────────────
                         use wells_tl_ghost_rows(_tl_ghost_nodes, _tl_card_w, _tl_card_cols, _tl_card_spacing, True)
@@ -1238,12 +1238,12 @@ screen wells_tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
                         frame:
                             background None
                             xfill True
-                            ysize 8
+                            ysize wells_ui(8)
 
             vbar:
                 value YScrollValue("tl_route_vp")
                 top_bar Frame("wells/gui/vertical_cheia.png", 0, 0)
                 bottom_bar Frame("wells/gui/vertical_vazia.png", 0, 0)
-                thumb Frame("wells/gui/v_pino.png", 10, 0) xsize wells_ui(20)
+                thumb Frame("wells/gui/v_pino.png", wells_ui(10), wells_ui(0)) xsize wells_ui(20)
 
 
