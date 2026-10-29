@@ -475,7 +475,7 @@ screen wells_tl_route_map(panel_width=None):
                 value YScrollValue("tl_route_map_vp")
                 top_bar Frame("wells/timeline/gui/vertical_cheia.png", 0, 0)
                 bottom_bar Frame("wells/timeline/gui/vertical_vazia.png", 0, 0)
-                thumb Frame("wells/timeline/gui/v_pino.png", 10, 0 xsize wells_ui(20)
+                thumb Frame("wells/timeline/gui/v_pino.png", 10, 0) xsize wells_ui(20)
 
             bar:
                 value XScrollValue("tl_route_map_vp")
