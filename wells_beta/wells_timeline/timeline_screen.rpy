@@ -89,15 +89,15 @@ screen wells_timeline():
                     yalign 0.5
 
                     vbox:
-                        spacing 4
+                        spacing wells_ui(4)
                         text "TIMELINE":
                             font "wells/fonts/Roboto-Regular.ttf"
                             bold True
-                            size 38
+                            size wells_ui(38)
                             color "#ff1c1cf1"
                         text ("Rastreamento de Rotas" if tl_view == "route" else "Histórico de Escolhas"):
                             font "wells/fonts/Roboto-Regular.ttf"
-                            size 21
+                            size wells_ui(21)
                             color "#b9b6b0"
 
                     null xfill True
@@ -108,7 +108,7 @@ screen wells_timeline():
                         _tl_btn_route_color = "#e0dfdc" if tl_view == "route" else "#9a9183"
 
                     hbox:
-                        spacing 8
+                        spacing wells_ui(8)
                         yalign 0.5
 
                         button:
@@ -122,7 +122,7 @@ screen wells_timeline():
 
                             text "Histórico":
                                 font "wells/fonts/Roboto-Regular.ttf"
-                                size 17
+                                size wells_ui(17)
                                 color _tl_btn_cards_color
                                 hover_color "#f0ece4"
                                 yalign 0.5
@@ -138,12 +138,12 @@ screen wells_timeline():
 
                             text "Rotas":
                                 font "wells/fonts/Roboto-Regular.ttf"
-                                size 17
+                                size wells_ui(17)
                                 color _tl_btn_route_color
                                 hover_color "#f0ece4"
                                 yalign 0.5
 
-                    null xsize 16
+                    null xsize wells_ui(16)
 
                     if tl_view == "route":
                         python:
@@ -151,7 +151,7 @@ screen wells_timeline():
                             _tl_notifs_label = "Avisos de mudanças ✓" if _tl_notifs_on else "Avisos de mudanças ✗"
                             _tl_notifs_color = "#f0ece4" if _tl_notifs_on else "#9a9183"
                         hbox:
-                            spacing 8
+                            spacing wells_ui(8)
                             yalign 0.5
 
                             button:
@@ -165,12 +165,12 @@ screen wells_timeline():
 
                                 text _tl_notifs_label:
                                     font "wells/fonts/Roboto-Regular.ttf"
-                                    size 17
+                                    size wells_ui(17)
                                     color _tl_notifs_color
                                     hover_color "#f0ece4"
                                     yalign 0.5
 
-                        null xsize 16
+                        null xsize wells_ui(16)
 
                     python:
                         _tl_playthrough_new = sum(
@@ -178,18 +178,18 @@ screen wells_timeline():
                         _tl_show_locked  = _tl_locked_count > 0 or _tl_playthrough_new > 0
 
                     if _tl_show_locked:
-                        null xsize 20
+                        null xsize wells_ui(20)
                         vbox:
-                            spacing 4
+                            spacing wells_ui(4)
                             yalign 0.5
 
                             if _tl_playthrough_new > 0:
                                 hbox:
-                                    spacing 10
+                                    spacing wells_ui(10)
                                     yalign 0.5
                                     text "●":
                                         font "wells/fonts/Roboto-Regular.ttf"
-                                        size 14
+                                        size wells_ui(14)
                                         color "#FFFFFF"
                                         yalign 0.5
                                         italic False
@@ -197,17 +197,17 @@ screen wells_timeline():
                                             _tl_playthrough_new,
                                             "escolha" if _tl_playthrough_new == 1 else "escolhas"): 
                                         font "wells/fonts/Roboto-Regular.ttf"
-                                        size 21
+                                        size wells_ui(21)
                                         color "#FFFFFF"
                                         yalign 0.5
 
                             if _tl_locked_count > 0:
                                 hbox:
-                                    spacing 10
+                                    spacing wells_ui(10)
                                     yalign 0.5
                                     text "●":
                                         font "wells/fonts/Roboto-Regular.ttf"
-                                        size 14
+                                        size wells_ui(14)
                                         color "#FFFFFF"
                                         yalign 0.5
                                         italic False
@@ -216,14 +216,14 @@ screen wells_timeline():
                                             "ramo" if _tl_locked_count == 1 else "ramos",
                                             "" if _tl_locked_count == 1 else "s"): 
                                         font "wells/fonts/Roboto-Regular.ttf"
-                                        size 21
+                                        size wells_ui(21)
                                         color "#FFFFFF"
                                         yalign 0.5
-                        null xsize 20
+                        null xsize wells_ui(20)
 
                     if persistent._tl_recovery_slot:
                         hbox:
-                            spacing 8
+                            spacing wells_ui(8)
                             yalign 0.5
                             button:
                                 idle_background Frame("wells/timeline/gui/Button-idle.png", 5, 5)
@@ -236,7 +236,7 @@ screen wells_timeline():
 
                                 text "Reverter":
                                     font "wells/fonts/Roboto-Regular.ttf"
-                                    size 21
+                                    size wells_ui(21)
                                     color "#d3d2cf"
                                     hover_color "#2bff00"
                                     yalign 0.5
@@ -244,7 +244,7 @@ screen wells_timeline():
                     null xsize wells_ui(14)
 
                     hbox:
-                        spacing 8
+                        spacing wells_ui(8)
                         yalign 0.5
                         button:
                             left_padding wells_ui_signed(0)
@@ -260,7 +260,7 @@ screen wells_timeline():
             frame:
                 xpadding 0
                 ypadding 0
-                xfill True ysize 3
+                xfill True ysize wells_ui(3)
                 background Solid("#e6161691")
 
             if tl_view == "route":
@@ -275,27 +275,27 @@ screen wells_timeline():
 
                     vbox:
                         xalign 0.5 yalign 0.5
-                        spacing 12
+                        spacing wells_ui(12)
                         text "Nenhuma escolha foi registrada ainda.":
                             font "wells/fonts/Roboto-Regular.ttf"
                             bold True
-                            size 21
+                            size wells_ui(21)
                             color "#f0ece4"
                             xalign 0.5
                         text "O Timeline registra as escolhas a partir do momento em que foi instalado.":
                             font "wells/fonts/Roboto-Regular.ttf"
-                            size 21
+                            size wells_ui(21)
                             color "#9a9183"
                             xalign 0.5
                         text "Continue jogando para ver suas escolhas aqui.":
                             font "wells/fonts/Roboto-Regular.ttf"
-                            size 21
+                            size wells_ui(21)
                             color "#9a9183"
                             xalign 0.5
             else:
                 side "c r":
                     xfill True yfill True
-                    spacing 18
+                    spacing wells_ui(18)
 
                     viewport:
                         id "tl_history_vp"
@@ -364,8 +364,8 @@ screen wells_timeline():
     if tl_view == "route" and tl_route_hover is not None:
         python:
             _tt_hx, _tt_hy = getattr(store, "_tl_route_hover_pos", (0, 0))
-            _tt_x  = _WELLS_TL_MIN(_tt_hx + 14, config.screen_width  - 240)
-            _tt_y  = _WELLS_TL_MIN(_tt_hy + 14, config.screen_height - 160)
+            _tt_x  = _WELLS_TL_MIN(_tt_hx + wells_ui(14), config.screen_width - wells_ui(240))
+            _tt_y  = _WELLS_TL_MIN(_tt_hy + wells_ui(14), config.screen_height - wells_ui(160))
             _tt_numeric = tl_route_hover in (getattr(persistent, "_tl_var_is_numeric", None) or set())
             _tt_domain  = [] if _tt_numeric else (
                 (getattr(persistent, "_tl_var_domain", None) or {}).get(tl_route_hover) or []
@@ -377,30 +377,30 @@ screen wells_timeline():
                 background Solid("#080808f6")
                 xpos _tt_x
                 ypos _tt_y
-                xpadding 14
-                ypadding 12
-                xsize 220
+                xpadding wells_ui(14)
+                ypadding wells_ui(12)
+                xsize wells_ui(220)
 
                 vbox:
                     xfill True
-                    spacing 10
+                    spacing wells_ui(10)
 
                     text "Rotas possíveis":
                         font "wells/fonts/Roboto-Regular.ttf"
                         bold True
-                        size 21
+                        size wells_ui(21)
                         color "#e9e7e4"
 
                     frame:
                         xpadding 0
                         ypadding 0
                         xfill True
-                        ysize 1
+                        ysize wells_ui(1)
                         background Solid("#e6161691")
 
                     vbox:
                         xfill True
-                        spacing 4
+                        spacing wells_ui(4)
                         for _tt_val in _tt_domain:
                             python:
                                 _tt_is_cur    = (_tt_val == _tt_cur)
@@ -408,22 +408,22 @@ screen wells_timeline():
 
                             hbox:
                                 xfill True
-                                spacing 6
+                                spacing wells_ui(6)
                                 xalign 0.5
                                 yalign 0.5
 
                                 if _tt_is_cur:
                                     text "→":
                                         font "wells/fonts/Roboto-Regular.ttf"
-                                        size 21
+                                        size wells_ui(21)
                                         color _tt_val_color
                                         yalign 0.5
                                 else:
-                                    null xsize 14
+                                    null xsize wells_ui(14)
 
                                 text _tl_strip_renpy_tags(_tt_val):
                                     font "wells/fonts/Roboto-Regular.ttf"
-                                    size 21
+                                    size wells_ui(21)
                                     color _tt_val_color
                                     yalign 0.5
 
