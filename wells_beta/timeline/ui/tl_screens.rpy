@@ -307,15 +307,19 @@ screen wells_tl_route_graph_card_body(graph_node, cw, ch):
             if isinstance(_tl_graph_source, (tuple, list)) and len(_tl_graph_source) == 2:
                 _tl_graph_img = _tl_resolve_img_name(
                     (str(_tl_graph_source[0]), int(_tl_graph_source[1])), None)
-        _tl_graph_thumb_h = int(cw * 9 / 16)
+        ## A borda ocupa espaço próprio. Imagem e diálogo usam somente a área interna.
+        _tl_graph_inner_w = max(1, cw - wells_ui(6))
+        _tl_graph_inner_h = max(1, ch - wells_ui(6))
+        _tl_graph_thumb_h = int(_tl_graph_inner_w * 9 / 16)
+        _tl_graph_dialog_h = max(1, _tl_graph_inner_h - _tl_graph_thumb_h)
         _tl_graph_img_disp = None
         if _tl_graph_img and not _tl_graph_thumb:
             _tl_graph_img_disp = _tl_img_thumb_displayable(
-                _tl_graph_img, cw, _tl_graph_thumb_h, "cover")
+                _tl_graph_img, _tl_graph_inner_w, _tl_graph_thumb_h, "cover")
         if _tl_graph_img_disp is None and _tl_graph_thumb:
             _tl_graph_img_disp = Transform(
                 _tl_thumb_displayable(_tl_graph_thumb, _tl_graph_index or 0),
-                xsize=cw, ysize=_tl_graph_thumb_h, fit="cover")
+                xsize=_tl_graph_inner_w, ysize=_tl_graph_thumb_h, fit="cover")
         _tl_graph_label = _tl_strip_renpy_tags(
             str(_tl_graph_choice.get("selected_label") or "Escolha"))
 
@@ -327,25 +331,36 @@ screen wells_tl_route_graph_card_body(graph_node, cw, ch):
         background Solid("#2d2c2c")
 
         vbox:
-            xfill True
+            xsize _tl_graph_inner_w
+            ysize _tl_graph_inner_h
             spacing 0
-            use wells_tl_thumbnail_frame(
-                cw - wells_ui(6), _tl_graph_thumb_h, img_disp=_tl_graph_img_disp,
-                fallback_text="{:02d}".format(graph_node.get("column", 0) + 1))
 
-            frame:
-                xfill True
-                ysize ch - _tl_graph_thumb_h - 6
-                xpadding wells_ui(8)
-                ypadding wells_ui(5)
-                background Solid("#0a0a0a")
+            ## Faixa superior: somente a imagem, limitada à área interna do card.
+            hbox:
+                xsize _tl_graph_inner_w
+                ysize _tl_graph_thumb_h
+                use wells_tl_thumbnail_frame(
+                    _tl_graph_inner_w, _tl_graph_thumb_h, img_disp=_tl_graph_img_disp,
+                    fallback_text="{:02d}".format(graph_node.get("column", 0) + 1))
 
-                text _tl_graph_label:
-                    font "wells/fonts/Roboto-Regular.ttf"
-                    size wells_ui(17)
-                    color "#f0ece4"
-                    xmaximum cw - wells_ui(20)
-                    yalign 0.5
+            ## Faixa inferior: somente o diálogo, com sua própria largura e altura.
+            hbox:
+                xsize _tl_graph_inner_w
+                ysize _tl_graph_dialog_h
+
+                frame:
+                    xsize _tl_graph_inner_w
+                    ysize _tl_graph_dialog_h
+                    xpadding wells_ui(8)
+                    ypadding wells_ui(5)
+                    background Solid("#0a0a0a")
+
+                    text _tl_graph_label:
+                        font "wells/fonts/Roboto-Regular.ttf"
+                        size wells_ui(17)
+                        color "#f0ece4"
+                        xmaximum _tl_graph_inner_w - wells_ui(16)
+                        yalign 0.5
 
 
 screen wells_tl_route_graph_card(graph_node, cw, ch):
