@@ -430,25 +430,6 @@ screen wells_tl_route_map(panel_width=None):
                 _tl_graph_card_w + _tl_graph_gap_x)
             _tl_gn["_y"] = _tl_graph_lane_y.get(
                 _tl_gn.get("lane", 0), _tl_graph_margin)
-        ## Encontra a escolha mais recente registrada na rota ativa.
-        _tl_graph_latest_node = None
-        for _tl_gn in _tl_graph_nodes:
-            if _tl_gn.get("history_index") is None:
-                continue
-            if _tl_graph_latest_node is None:
-                _tl_graph_latest_node = _tl_gn
-            elif (_tl_gn.get("active") and not _tl_graph_latest_node.get("active")):
-                _tl_graph_latest_node = _tl_gn
-            elif (_tl_gn.get("active") == _tl_graph_latest_node.get("active")
-                    and _tl_gn["history_index"] > _tl_graph_latest_node["history_index"]):
-                _tl_graph_latest_node = _tl_gn
-        _tl_graph_initial_x = (
-            float(_tl_graph_latest_node["_x"]) / max(1, _tl_graph_canvas_w)
-            if _tl_graph_latest_node else 0.0)
-        _tl_graph_initial_y = (
-            float(_tl_graph_latest_node["_y"]) / max(1, _tl_graph_canvas_h)
-            if _tl_graph_latest_node else 0.0)
-
     if not _tl_graph_nodes:
         frame:
             xpadding 0
@@ -470,8 +451,8 @@ screen wells_tl_route_map(panel_width=None):
 
             viewport:
                 id "tl_route_map_vp"
-                xinitial _tl_graph_initial_x
-                yinitial _tl_graph_initial_y
+                xinitial 1.0
+                yinitial 1.0
                 xfill True
                 yfill True
                 mousewheel True
