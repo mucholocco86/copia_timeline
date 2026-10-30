@@ -40,7 +40,7 @@ init -2 python:
             if node is not None and type(node).__name__ == "Menu":
                 return _tl_menu_site_key(getattr(node, "filename", None), getattr(node, "linenumber", None))
         except Exception as e:
-            _tl_log("TL menu_ast_key lookup failed: {}".format(e))
+            _tl_log("Timeline menu_ast_key lookup failed: {}".format(e))
         return None
 
     def _tl_location_menu_site_key(location):
@@ -70,7 +70,7 @@ init -2 python:
         try:
             namemap = renpy.game.script.namemap
         except Exception as e:
-            _tl_log("TL option peek: namemap not available: {}".format(e))
+            _tl_log("Timeline option peek: namemap not available: {}".format(e))
             rt_cache["live_menu_lookup"] = {}
             return rt_cache["live_menu_lookup"]
 
@@ -95,44 +95,98 @@ init -2 python:
 
 init -2 python:
 
+    try:
+        _tl_int_types = (int, long)
+    except NameError:
+        _tl_int_types = (int,)
+
     def _tl_parse_menu_items(items):
-        """
-        Parse raw Ren'Py menu items (label, condition, block) into (prompt, valid_labels).
-        Caption entries (block=None) contribute to the prompt string; option entries
-        with a falsy condition are excluded. String conditions are evaluated via py_eval;
-        options are included on eval failure so a broken condition doesn't silently vanish.
-        Returns (prompt_str, valid_label_list).
-        """
-        prompt       = ""
+        """Lê opções do AST e preserva seus índices originais em Menu.items."""
+        prompt = ""
         valid_labels = []
+        valid_ast_indices = []
         for entry in items:
             label = entry[0]
-            cond  = entry[1] if len(entry) > 1 else None
-            block = entry[2] if len(entry) > 2 else None
-            if block is None:
-                ## Sem bloco → entrada de legenda ou prompt
+            cond = entry[1] if len(entry) > 1 else None
+            ast_index = entry[2] if len(entry) > 2 else None
+            if ast_index is not None and not isinstance(ast_index, _tl_int_types):
+                ast_index = _tl_option_ast_index(ast_index)
+            if ast_index is None:
+                ast_index = len(valid_ast_indices)
+            if len(entry) < 3 or entry[2] is None:
                 if not prompt:
                     prompt = label
             elif cond in (None, True, "True"):
                 valid_labels.append(label)
+                valid_ast_indices.append(ast_index)
             elif cond is False or cond == "False":
-                pass  ## bloqueado explicitamente
+                pass
             else:
                 try:
                     if renpy.python.py_eval(cond):
                         valid_labels.append(label)
+                        valid_ast_indices.append(ast_index)
                 except Exception:
-                    valid_labels.append(label)  ## inclui quando a avaliação falha
-        return prompt, valid_labels
+                    valid_labels.append(label)
+                    valid_ast_indices.append(ast_index)
+        return prompt, valid_labels, valid_ast_indices
+
+    def _tl_option_ast_index(value):
+        try:
+            value = value.value
+        except Exception:
+            pass
+        return value if isinstance(value, _tl_int_types) else None
+
+    def _tl_node_option_ast_index(node, option_index):
+        if node is None or option_index is None:
+            return None
+        indices = node.get("option_ast_indices")
+        if isinstance(indices, list) and 0 <= option_index < len(indices):
+            return indices[option_index]
+        return None
+
+    def _tl_node_option_index_for_ast(node, ast_index, fallback=None):
+        if node is None or ast_index is None:
+            return fallback
+        indices = node.get("option_ast_indices")
+        if isinstance(indices, list):
+            try:
+                return indices.index(ast_index)
+            except ValueError:
+                pass
+        return fallback
+
+    def _tl_sync_node_options(node, items):
+        """Alinha o nó às opções efetivamente visíveis sem perder índices do AST."""
+        if node is None:
+            return False
+        entries = _tl_valid_choice_entries(items)
+        old_labels = node.get("options", [])
+        old_indices = node.get("option_ast_indices", [])
+        labels = []
+        indices = []
+        for label, action in entries:
+            ast_index = _tl_option_ast_index(action)
+            if ast_index is None:
+                return False
+            try:
+                old_pos = old_indices.index(ast_index)
+            except ValueError:
+                return False
+            labels.append(old_labels[old_pos] if old_pos < len(old_labels) else label)
+            indices.append(ast_index)
+        node["options"] = labels
+        node["option_ast_indices"] = indices
+        return True
 
     def _tl_valid_choice_entries(items):
         out = []
         for entry in items:
             label = entry[0]
             value = entry[1] if len(entry) > 1 else None
-            if value is None:
-                continue
-            out.append((label, value))
+            if value is not None:
+                out.append((label, value))
         return out
 
     def _tl_choice_entry_for_index(items, choice_index):
@@ -143,30 +197,38 @@ init -2 python:
             return None
         return valid_items[choice_index]
 
-    def _tl_choice_index_from_return_value(items, rv):
-        _valid = list(_tl_valid_choice_entries(items))
-        for i, (_label, value) in enumerate(_valid):
-            if value is rv:
-                return i
-        for i, (_label, value) in enumerate(_valid):
-            if value == rv:
-                return i
+    def _tl_choice_entry_for_ast_index(items, ast_index):
+        if ast_index is None:
+            return None
+        for label, value in _tl_valid_choice_entries(items):
+            if _tl_option_ast_index(value) == ast_index:
+                return label, value
+        return None
+
+    def _tl_choice_index_from_return_value(items, rv, node=None):
+        valid_items = list(_tl_valid_choice_entries(items))
+        for i, (_label, value) in enumerate(valid_items):
+            if value is rv or value == rv:
+                return _tl_node_option_index_for_ast(
+                    node, _tl_option_ast_index(value), i)
             try:
                 if value.value == rv:
-                    return i
-            except AttributeError:
+                    return _tl_node_option_index_for_ast(
+                        node, _tl_option_ast_index(value), i)
+            except Exception:
                 pass
         return None
 
     def _tl_populate_choice_returns(node, items):
         if node is None:
             return
-        _crs = _tl_runtime_choice_returns(node, create=True)
-        if _crs is None:
+        choice_returns = _tl_runtime_choice_returns(node, create=True)
+        if choice_returns is None:
             return
         for i, (_label, value) in enumerate(_tl_valid_choice_entries(items)):
-            if i >= len(_crs):
-                break
+            target_index = _tl_node_option_index_for_ast(
+                node, _tl_option_ast_index(value), i)
+            if target_index is None or target_index >= len(choice_returns):
+                continue
             if value is not None and hasattr(value, "get_chosen"):
-                _crs[i] = value
-
+                choice_returns[target_index] = value

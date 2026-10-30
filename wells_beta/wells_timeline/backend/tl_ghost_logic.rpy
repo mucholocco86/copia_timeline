@@ -7,7 +7,7 @@ init -2 python:
 
     import ast as _tl_ast_mod
 
-    def _collect_branch_imgs(block, max_images=5):
+    def _wf_tl_collect_branch_imgs(block, max_images=5):
         """
         Collect up to max_images Scene/Show images from a branch block.
         Tier 1: flat block scan. Tier 2: follow first Jump/Call one hop.
@@ -57,12 +57,12 @@ init -2 python:
                                         collected.append((" ".join(sp[0]), target))
                                 snode = getattr(snode, "next", None)
                                 walked += 1
-                            if TL_DEBUG_GHOST:
-                                _tl_log("TL collect_branch_imgs hop {}: walked={} imgs={}".format(
+                            if WELLS_TL_DEBUG_GHOST:
+                                _tl_log("Timeline collect_branch_imgs hop {}: walked={} imgs={}".format(
                                     target, walked, [i for i, _ in collected]))
                         break  ## somente um salto
             except Exception as e:
-                _tl_log("TL collect_branch_imgs hop failed: {}".format(e))
+                _tl_log("Timeline collect_branch_imgs hop failed: {}".format(e))
 
         return collected, visited
 
@@ -76,7 +76,7 @@ init python:
     ## (a AST do Ren'Py é criada na inicialização e nunca é substituída). O dicionário no nível do módulo
     ## não é afetado pelo rollback — como a AST não muda durante o
     ## rollback. Não é persistente — os descritores da sessão são derivados da AST.
-    _TL_SEEN_FN_CACHE = {}
+    _WELLS_TL_SEEN_FN_CACHE = {}
 
     def _tl_ghost_ast(ast_key):
         """Return persistent AST-derived data for a ghost cluster by its ast_key."""
@@ -86,17 +86,17 @@ init python:
         if blk is None:
             return ("never",)
         cache_key = _tl_builtin_id(blk)
-        if cache_key not in _TL_SEEN_FN_CACHE:
-            _TL_SEEN_FN_CACHE[cache_key] = _tl_make_seen_fn(blk)
-        return _TL_SEEN_FN_CACHE[cache_key]
+        if cache_key not in _WELLS_TL_SEEN_FN_CACHE:
+            _WELLS_TL_SEEN_FN_CACHE[cache_key] = _tl_make_seen_fn(blk)
+        return _WELLS_TL_SEEN_FN_CACHE[cache_key]
 
     ## ── Funções auxiliares de variáveis e condições (recuperadas de tl_var_delta.rpy) ─────
 
     import re as _tl_re
 
-    _TL_VAR_RE     = _tl_re.compile(r'\b([a-z_][a-z0-9_]*)\b(?!\s*\()')
-    _TL_STR_LIT_RE = _tl_re.compile(r'"[^"]*"|\'[^\']*\'')
-    _TL_KW_SKIP    = frozenset([
+    _WELLS_TL_VAR_RE     = _tl_re.compile(r'\b([a-z_][a-z0-9_]*)\b(?!\s*\()')
+    _WELLS_TL_STR_LIT_RE = _tl_re.compile(r'"[^"]*"|\'[^\']*\'')
+    _WELLS_TL_KW_SKIP    = frozenset([
         "and","or","not","in","is","True","False","None",
         "if","else","elif","return","renpy","store","persistent",
         "len","range","int","str","float","bool","list","dict","set",
@@ -118,7 +118,7 @@ init python:
             for node in ast.walk(tree):
                 if isinstance(node, ast.Name):
                     name = node.id
-                    if name not in _TL_KW_SKIP and not name[0].isupper():
+                    if name not in _WELLS_TL_KW_SKIP and not name[0].isupper():
                         out.add(name)
         return out
 
@@ -205,8 +205,8 @@ init python:
                 continue
             r = _tl_parse_regions(cond)
             if r is None:
-                if TL_DEBUG_GHOST:
-                    _tl_log("TL cluster: parse failed for '{}' → no cluster".format(cond))
+                if WELLS_TL_DEBUG_GHOST:
+                    _tl_log("Timeline cluster: parse failed for '{}' → no cluster".format(cond))
                 return False
             new_regions.extend(r)
         if not new_regions:
@@ -216,19 +216,19 @@ init python:
             for rb in new_regions:
                 shared_vars = set(ra) & set(rb)
                 if not shared_vars:
-                    if TL_DEBUG_GHOST:
-                        _tl_log("TL cluster: no shared vars {} vs {} → no cluster".format(
+                    if WELLS_TL_DEBUG_GHOST:
+                        _tl_log("Timeline cluster: no shared vars {} vs {} → no cluster".format(
                             set(ra), set(rb)))
                     return False
                 overlap = all(ra[v] & rb[v] for v in shared_vars)
                 if overlap:
-                    if TL_DEBUG_GHOST:
-                        _tl_log("TL cluster: regions overlap {} & {} → no cluster".format(
+                    if WELLS_TL_DEBUG_GHOST:
+                        _tl_log("Timeline cluster: regions overlap {} & {} → no cluster".format(
                             dict(ra), dict(rb)))
                     return False
 
-        if TL_DEBUG_GHOST:
-            _tl_log("TL cluster: all regions disjoint → cluster with prev")
+        if WELLS_TL_DEBUG_GHOST:
+            _tl_log("Timeline cluster: all regions disjoint → cluster with prev")
         return True
 
     def _tl_branch_exits_before_next(block):
@@ -265,7 +265,7 @@ init python:
             for node in ast.walk(tree):
                 if isinstance(node, ast.Name):
                     name = node.id
-                    if name not in _TL_KW_SKIP and not name[0].isupper():
+                    if name not in _WELLS_TL_KW_SKIP and not name[0].isupper():
                         col = node.col_offset
                         repls.append((col, col + len(name), _tl_prettify_var(name)))
                 elif isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -278,11 +278,11 @@ init python:
         except Exception:
             def _repl(m):
                 name = m.group(1)
-                if name in _TL_KW_SKIP or name[0].isupper():
+                if name in _WELLS_TL_KW_SKIP or name[0].isupper():
                     return name
                 return _tl_prettify_var(name)
             return _tl_strip_renpy_tags(
-                _TL_VAR_RE.sub(_repl, _TL_STR_LIT_RE.sub(lambda m: m.group(0), cond))
+                _WELLS_TL_VAR_RE.sub(_repl, _WELLS_TL_STR_LIT_RE.sub(lambda m: m.group(0), cond))
             )
 
     ## ── Rastreamento de ramos futuros de nós If ───────────────────────────────────────────────
@@ -315,7 +315,7 @@ init python:
 
         affecting_vars = _tl_extract_vars_from_conditions(conditions)
         if not affecting_vars and any(c not in ("True", "False", "None") for c in conditions):
-            _tl_log("TL ghost payload: no vars extracted from conditions={} key=({},{})".format(
+            _tl_log("Timeline ghost payload: no vars extracted from conditions={} key=({},{})".format(
                 conditions,
                 getattr(if_node, "filename", "?"),
                 getattr(if_node, "linenumber", "?")))
@@ -333,8 +333,8 @@ init python:
             else:
                 regions = None
                 break
-        if TL_DEBUG_GHOST:
-            _tl_log("TL ghost _regions: {}".format(
+        if WELLS_TL_DEBUG_GHOST:
+            _tl_log("Timeline ghost _regions: {}".format(
                 len(regions) if regions is not None else "None"))
 
         seen_fns = []
@@ -368,7 +368,7 @@ init python:
             entries = getattr(if_node, "entries", [])
             seqs = []
             for cond, blk in entries:
-                imgs, vis = _collect_branch_imgs(blk) if blk else ([], set())
+                imgs, vis = _wf_tl_collect_branch_imgs(blk) if blk else ([], set())
                 seqs.append((imgs, vis))
             payload["branch_img_seqs"] = seqs
             payload["context_img"] = context_img
@@ -448,8 +448,8 @@ init python:
                 cands = [(img, lbl) for img, lbl in imgs if not _tl_img_name_is_movie(img)]
                 chosen = next((img for img, _ in cands if img not in sibling_imgs), None)
                 branch_imgs.append(chosen or (cands[0][0] if cands else context_img))
-        if TL_DEBUG_GHOST:
-            _tl_log("TL ghost cluster_imgs: {}".format(branch_imgs))
+        if WELLS_TL_DEBUG_GHOST:
+            _tl_log("Timeline ghost cluster_imgs: {}".format(branch_imgs))
 
         cache_key = str(group[0]["ast_key"])
         existing  = (persistent._tl_ghost_node_cache or {}).get(cache_key)
@@ -466,8 +466,8 @@ init python:
             "branch_imgs":       branch_imgs,
             "cluster_with_prev": cluster_with_prev,
         })
-        if TL_DEBUG_GHOST:
-            _tl_log("TL ghost appended cluster: root_ast={} members={} conditions={} affecting_vars={} cluster={}".format(
+        if WELLS_TL_DEBUG_GHOST:
+            _tl_log("Timeline ghost appended cluster: root_ast={} members={} conditions={} affecting_vars={} cluster={}".format(
                 group[0]["ast_key"], member_ast_keys, conditions,
                 sorted(affecting_vars), cluster_with_prev))
 
@@ -490,7 +490,7 @@ init python:
                         seen[var] = set()
                     seen[var].add(if_ast_key)
         except Exception as e:
-            _tl_log("TL if_execute var tracking failed: {}".format(e))
+            _tl_log("Timeline if_execute var tracking failed: {}".format(e))
 
         ## Rastreamento de ramos futuros (interface de ramos): somente durante o jogo.
         if getattr(persistent, "_tl_replaying", False) or config.skipping:
@@ -502,8 +502,8 @@ init python:
 
             ## Ignora nós If já sintetizados pela análise antecipada.
             if (if_node.filename, if_node.linenumber) in store._tl_skip_ghost_ifs:
-                if TL_DEBUG_GHOST:
-                    _tl_log("TL ghost skip (lookahead-synthesized): {}".format(
+                if WELLS_TL_DEBUG_GHOST:
+                    _tl_log("Timeline ghost skip (lookahead-synthesized): {}".format(
                         (if_node.filename, if_node.linenumber)))
                 return
 
@@ -522,7 +522,7 @@ init python:
             _tl_flush_var_changes()
             _tl_notify_branch(run, taken_index, None)
         except Exception as e:
-            _tl_log("TL ghost If error: {}".format(e))
+            _tl_log("Timeline ghost If error: {}".format(e))
 
     ## ── Aviso de ramo ───────────────────────────────────────────────────
 
@@ -559,9 +559,9 @@ init python:
             ## Usa o snapshot anterior à execução em "Novo caminho" para que os
             ## descritores de imagem não sejam afetados pelas alterações Scene da própria execução.
             if pre_taken_seen is False:
-                if TL_DEBUG_GHOST:
-                    _tl_log("TL notify: tier=new_path taken_seen=False")
-                renpy.show_screen("_tl_notify", message="⎇ Novo caminho")
+                if WELLS_TL_DEBUG_GHOST:
+                    _tl_log("Timeline notify: tier=new_path taken_seen=False")
+                renpy.show_screen("wells_tl_notify", message="⎇ Novo caminho")
                 return
 
             ## ⎇ somente ícone: ao menos um ramo não escolhido do grupo está bloqueado.
@@ -572,14 +572,14 @@ init python:
                 if i != taken_global_idx and not _tl_eval_seen_fn(seen_fn)
             )
             if locked > 0:
-                if TL_DEBUG_GHOST:
-                    _tl_log("TL notify: tier=icon locked={}".format(locked))
-                renpy.show_screen("_tl_notify", message="⎇")
-            elif TL_DEBUG_GHOST:
-                _tl_log("TL notify: tier=suppress")
+                if WELLS_TL_DEBUG_GHOST:
+                    _tl_log("Timeline notify: tier=icon locked={}".format(locked))
+                renpy.show_screen("wells_tl_notify", message="⎇")
+            elif WELLS_TL_DEBUG_GHOST:
+                _tl_log("Timeline notify: tier=suppress")
             ## todos os ramos já foram vistos — suprime o aviso
         except Exception as e:
-            _tl_log("TL notify_branch failed: {}".format(e))
+            _tl_log("Timeline notify_branch failed: {}".format(e))
 
     ## ── Callback de navegação de tela — limpa nós de ramos futuros ao mudar de local em sandbox ─
     ##
@@ -597,8 +597,8 @@ init python:
         if getattr(persistent, "_tl_replaying", False) or config.skipping:
             return
         if store._tl_ghost_nodes or store._tl_skip_ghost_ifs:
-            if TL_DEBUG_GHOST:
-                _tl_log("TL screen_navigate: cleared ghost={}".format(len(store._tl_ghost_nodes)))
+            if WELLS_TL_DEBUG_GHOST:
+                _tl_log("Timeline screen_navigate: cleared ghost={}".format(len(store._tl_ghost_nodes)))
             store._tl_ghost_nodes    = []
             store._tl_skip_ghost_ifs = set()
 

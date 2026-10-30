@@ -5,20 +5,48 @@
 
 init -2 python:
 
-    TL_ASSET_THUMB_CACHE_MAX     = 500
-    TL_ASSET_THUMB_CACHE_VERSION = 1
+    WELLS_TL_ASSET_THUMB_CACHE_MAX     = 500
+    WELLS_TL_ASSET_THUMB_CACHE_VERSION = 1
 
     _tl_asset_thumb_displayable_cache = {}
     _tl_asset_thumb_file_cache        = {}
 
-    _tl_im_Data = renpy.display.im.Data   ## caminho canônico; funciona no Ren'Py 7 e 8 sem aviso de descontinuação
+    import os as _tl_asset_os
+    import io as _tl_asset_io
+    import hashlib as _tl_asset_hashlib
+
+    _tl_im_Data = getattr(renpy.display.im, "Data", None)
+
+    def _tl_data_displayable(data, name):
+        """Create a byte-backed image, with a disk fallback for SDKs without im.Data."""
+        if _tl_im_Data is not None:
+            return _tl_im_Data(data, name)
+
+        ext = _tl_asset_os.path.splitext(name)[1].lower() or ".png"
+        digest = _tl_asset_hashlib.md5(data).hexdigest()
+        relative = _tl_asset_os.path.join("cache", "wells_tl_" + digest + ext)
+        absolute = _tl_asset_os.path.join(renpy.config.gamedir, relative)
+        directory = _tl_asset_os.path.dirname(absolute)
+
+        if not _tl_asset_os.path.isdir(directory):
+            try:
+                _tl_asset_os.makedirs(directory)
+            except OSError:
+                if not _tl_asset_os.path.isdir(directory):
+                    raise
+
+        if not _tl_asset_os.path.isfile(absolute):
+            with _tl_asset_io.open(absolute, "wb") as image_file:
+                image_file.write(data)
+
+        return renpy.display.im.Image(relative.replace("\\", "/"))
 
     try:
         import base64 as _tl_base64
-        _TL_LOCK_B64   = b"iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAD70lEQVR42u1bS2sUQRD+arIbH4lGAyqCekjAcxAkFxFFf4P/Qa85eAnkGLznlKPgWXMPKmJuIXjz5ANRRGJMgi9idubzsFXSDPPoyc4ku7ELhp1Hd1V9X1dV92zvChoQkhEAEZFYr8cAXANwA8AVABMAxgEc1y6/AHwD8BbAGoDnAF6KyLb2HwJAEUnQ76LO2vkUyQWS71hd3mnfqSzd/QhczEGSkyQfkYwdQAnJjt5L9HCfJfqsk3oWq65JI4Gk9Bv4yDm/R3LLAbCbAuQrifY12SJ5L8tmX4AneYTkwxTwusTV9ZDkkb4gwQF/kuRyjyNeJSKWSZ48UBI05yOSx0i+UMf+VABj+e7WBR8xGy/UdrTvNSFV8JY8wdsIxgVtYs8IMltPDqQwOuDnPMF3UtfrJNc0lJf1fL2kTx4Jc/s6RTrgpz1z3oD8ILlI8jbJ8Qy94/psUduWkeDWhOl9I0FzrkVy1cNJe/aY5OUcXVHG/cvax1f/qvoUNQ2+pZ93SpxLnGezbv+8fLW6Yjb03qxjJykh4Y7rY9OVfzUFMs+pGadIRRWjzFJtpoRsI2e10RnBceiqM8pF4Be1fXsvTinZbT1f9Ig4krzaWC1wwn++YKVn8/l7kiO9Tk9OWoyoziRnGjVf5qumQZWiEevndf3MAka9Py8iP/WVmHslQPuK6ppX3Vn6JOVbXHvuO1PVZk4K2PUGydM6elJT3RHVuVFie9OmWF/bvhFgyi4COJUTAfZlxYqIbAKIehn9VBREqnMlZSvt3yn1MS9CeybgfEGIGdhXyn6d1dii6VXKVlaKnm+SgFGPtp/qGPmcSPjk0XS0CQJMjhaMgMnvBtdiRbqZ8hFNEODDKhskgDX5uGcCDp0EAgIB/7l4r5mrrOpsHVDjm5nswX7vBKiiIZuHSfpUYWrbuK71gOmqaN9eigr9aBWB144dXYu3PCOmpW3bJDt1RSrJ3Yr2/wF3sPjNmdaB5DkA9wHc1BXWGIAzzltf1pvgOoDvWl/qWhOIrv9PeNrfBvADwDMAD0TkSx4JWV9NmeOXADxFdyd3kOUNgFsAPuirdVI6CyhTCwp+R9lPPEeUTvu6j6r2dwBMAljwSgGSkYgkJC+gu1c/pG1kQEefesQAJkTko2EsWwecBdAecPBw/G8rJu+FkODwiYSVYCAgEBAICAQEAgIBgYBAQCAgEBAICAQEAgIBgYBAQCAgEBAICAQEAgIBgYBAQIZ8BWB7+xxgfOZ7RzEVE6AboxG6W8kr6G4n7Q4wAbuKYQXAh/TGaFkK3AXwGcDwABMwrBjueqeAMiQi8hrdX4YsofuLCw5Y6G+r7zcVi2T9/f4vvIKpDuXummUAAAAASUVORK5CYII="
-        _TL_UNLOCK_B64 = b"iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAEH0lEQVR42u2bTYsUVxSGn9M9JkYmCTIxS0EFITALMRAJEzAYRBeCP8RtVllkEQLBVfBPqIv8A4MEUbKQGTei5HtlhFFwoo6o01VvFn0uXIr66K6eru7We6Domq77cc5zzr333Lo9xpRE0pKZDfy+D6wBp4DPgSPAAWCfF38BPAL+An4FrgO3zCwrtjX3Iqknyfx+RdLXku5ofLnjdVe8LZPUm3fj+9H9BUkPC0YNJGWScr+ChL8zLxPLQ0kXyvqYN+OX/POgpGuRATtu2LiSed0g1yQdjPuaR+NPSHoQGZ5rcskjEA8knZgrCCEkJZ2U9CwyfhTD8pLhUCWhzWeSTs7FcAiTkqRjkraicd7kzbIygxGiJtTbknQs1qGt2ATGm9f/EFgHDgEZUOYVAXnhWQY89/vlkme9Cv1CH/8AnwL/ATIzzSr0rzaEfezRfyVdknRO0lFJB/w66t9d8jJldcuGw9WZDIXI+LMNxmdR6H4f1vSGtle87KDQRhWEs51D8GSnJ2nDvTSoMf6xpK/iFUNSPyRMIcHx75aicqe8bhWEgfe9EfTp2vtnaia9kNRsSTru5feEDLFpbpG0x++PextZxXAIfZ/pLAoiAJcLa3SZ988H41v0EyCcr4mCsGpc7gRAlOMvS9qsmKiCV660Nb4EwpWKaAt9b0pajnWctvfXambpEBWrHs79SfrzNlZrcoTw3VqbKBh34gh0V6M1ubhGG7BuZncBC1vaVknKsK55W+vedlmfsU42TQBBjlQ5zT9vTNh+mY43Cn2MqtNUAHzU8PzPKYzAPxqer3QBINB/r2GIPJ0CgOc13s89na6LkFJpu6VsmmjyXTQ8tPWbA+4Dgwh27nb83uUc0JmYWS6pZ2YbwA9u4JKD6APvALeAH30JzLqIgFlAMDP7RtJPwGEHYcAT4LqZZV5GbxwAh6AoEjbKkrQ2W+KFARAPh8LQFZC3fR+wUAAChN2cZHu85ZIAJABvuYw7CdqI++1Qzqa6P69ZMncVQHjfFp32NnUwcCV2ZuHVSN98YgCefOR+/77Xebeh2geS9nvZro+1X5vZdlH3phccVcabZ2CrwHfAZ74TXPYcvEq2gdezcD7D3xrcBr41s7tNGaI1hJGAT4CbwP4Fm9+eAF8A94ejoTwSevVziQm46Ma/ciAa0ROzvF65zhfdBhsrAqLQ3wf8DXzcZq89QwlO2gQOm9mLqqHQlAfs9bFuLJ6Y6753kkRILL4oZYIJQAKQACQACUACkAAkAAlAApAAJAAJQAKQACQACUACkAAkACMCsDfARpsEwEuGZ3yL+HpcrvvLsQH4qVDfzMJBozGjo+6WsuM63/ZToX7VAemoh6O/MPxv70WSR8CXtD0c9QpmZveA08DPDI+9Nedhv+26nnbdre43Av8DSMhGwPTI6CcAAAAASUVORK5CYII="
-        _tl_lock_displayable   = _tl_im_Data(_tl_base64.b64decode(_TL_LOCK_B64),   "tl_icon_lock.png")
-        _tl_unlock_displayable = _tl_im_Data(_tl_base64.b64decode(_TL_UNLOCK_B64), "tl_icon_unlock.png")
+        _WELLS_TL_LOCK_B64   = b"iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAD70lEQVR42u1bS2sUQRD+arIbH4lGAyqCekjAcxAkFxFFf4P/Qa85eAnkGLznlKPgWXMPKmJuIXjz5ANRRGJMgi9idubzsFXSDPPoyc4ku7ELhp1Hd1V9X1dV92zvChoQkhEAEZFYr8cAXANwA8AVABMAxgEc1y6/AHwD8BbAGoDnAF6KyLb2HwJAEUnQ76LO2vkUyQWS71hd3mnfqSzd/QhczEGSkyQfkYwdQAnJjt5L9HCfJfqsk3oWq65JI4Gk9Bv4yDm/R3LLAbCbAuQrifY12SJ5L8tmX4AneYTkwxTwusTV9ZDkkb4gwQF/kuRyjyNeJSKWSZ48UBI05yOSx0i+UMf+VABj+e7WBR8xGy/UdrTvNSFV8JY8wdsIxgVtYs8IMltPDqQwOuDnPMF3UtfrJNc0lJf1fL2kTx4Jc/s6RTrgpz1z3oD8ILlI8jbJ8Qy94/psUduWkeDWhOl9I0FzrkVy1cNJe/aY5OUcXVHG/cvax1f/qvoUNQ2+pZ93SpxLnGezbv+8fLW6Yjb03qxjJykh4Y7rY9OVfzUFMs+pGadIRRWjzFJtpoRsI2e10RnBceiqM8pF4Be1fXsvTinZbT1f9Ig4krzaWC1wwn++YKVn8/l7kiO9Tk9OWoyoziRnGjVf5qumQZWiEevndf3MAka9Py8iP/WVmHslQPuK6ppX3Vn6JOVbXHvuO1PVZk4K2PUGydM6elJT3RHVuVFie9OmWF/bvhFgyi4COJUTAfZlxYqIbAKIehn9VBREqnMlZSvt3yn1MS9CeybgfEGIGdhXyn6d1dii6VXKVlaKnm+SgFGPtp/qGPmcSPjk0XS0CQJMjhaMgMnvBtdiRbqZ8hFNEODDKhskgDX5uGcCDp0EAgIB/7l4r5mrrOpsHVDjm5nswX7vBKiiIZuHSfpUYWrbuK71gOmqaN9eigr9aBWB144dXYu3PCOmpW3bJDt1RSrJ3Yr2/wF3sPjNmdaB5DkA9wHc1BXWGIAzzltf1pvgOoDvWl/qWhOIrv9PeNrfBvADwDMAD0TkSx4JWV9NmeOXADxFdyd3kOUNgFsAPuirdVI6CyhTCwp+R9lPPEeUTvu6j6r2dwBMAljwSgGSkYgkJC+gu1c/pG1kQEefesQAJkTko2EsWwecBdAecPBw/G8rJu+FkODwiYSVYCAgEBAICAQEAgIBgYBAQCAgEBAICAQEAgIBgYBAQCAgEBAICAQEAgIBgYBAQIZ8BWB7+xxgfOZ7RzEVE6AboxG6W8kr6G4n7Q4wAbuKYQXAh/TGaFkK3AXwGcDwABMwrBjueqeAMiQi8hrdX4YsofuLCw5Y6G+r7zcVi2T9/f4vvIKpDuXummUAAAAASUVORK5CYII="
+        _WELLS_TL_UNLOCK_B64 = b"iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAEH0lEQVR42u2bTYsUVxSGn9M9JkYmCTIxS0EFITALMRAJEzAYRBeCP8RtVllkEQLBVfBPqIv8A4MEUbKQGTei5HtlhFFwoo6o01VvFn0uXIr66K6eru7We6Domq77cc5zzr333Lo9xpRE0pKZDfy+D6wBp4DPgSPAAWCfF38BPAL+An4FrgO3zCwrtjX3Iqknyfx+RdLXku5ofLnjdVe8LZPUm3fj+9H9BUkPC0YNJGWScr+ChL8zLxPLQ0kXyvqYN+OX/POgpGuRATtu2LiSed0g1yQdjPuaR+NPSHoQGZ5rcskjEA8knZgrCCEkJZ2U9CwyfhTD8pLhUCWhzWeSTs7FcAiTkqRjkraicd7kzbIygxGiJtTbknQs1qGt2ATGm9f/EFgHDgEZUOYVAXnhWQY89/vlkme9Cv1CH/8AnwL/ATIzzSr0rzaEfezRfyVdknRO0lFJB/w66t9d8jJldcuGw9WZDIXI+LMNxmdR6H4f1vSGtle87KDQRhWEs51D8GSnJ2nDvTSoMf6xpK/iFUNSPyRMIcHx75aicqe8bhWEgfe9EfTp2vtnaia9kNRsSTru5feEDLFpbpG0x++PextZxXAIfZ/pLAoiAJcLa3SZ988H41v0EyCcr4mCsGpc7gRAlOMvS9qsmKiCV660Nb4EwpWKaAt9b0pajnWctvfXambpEBWrHs79SfrzNlZrcoTw3VqbKBh34gh0V6M1ubhGG7BuZncBC1vaVknKsK55W+vedlmfsU42TQBBjlQ5zT9vTNh+mY43Cn2MqtNUAHzU8PzPKYzAPxqer3QBINB/r2GIPJ0CgOc13s89na6LkFJpu6VsmmjyXTQ8tPWbA+4Dgwh27nb83uUc0JmYWS6pZ2YbwA9u4JKD6APvALeAH30JzLqIgFlAMDP7RtJPwGEHYcAT4LqZZV5GbxwAh6AoEjbKkrQ2W+KFARAPh8LQFZC3fR+wUAAChN2cZHu85ZIAJABvuYw7CdqI++1Qzqa6P69ZMncVQHjfFp32NnUwcCV2ZuHVSN98YgCefOR+/77Xebeh2geS9nvZro+1X5vZdlH3phccVcabZ2CrwHfAZ74TXPYcvEq2gdezcD7D3xrcBr41s7tNGaI1hJGAT4CbwP4Fm9+eAF8A94ejoTwSevVziQm46Ma/ciAa0ROzvF65zhfdBhsrAqLQ3wf8DXzcZq89QwlO2gQOm9mLqqHQlAfs9bFuLJ6Y6753kkRILL4oZYIJQAKQACQACUACkAAkAAlAApAAJAAJQAKQACQACUACkAAkACMCsDfARpsEwEuGZ3yL+HpcrvvLsQH4qVDfzMJBozGjo+6WsuM63/ZToX7VAemoh6O/MPxv70WSR8CXtD0c9QpmZveA08DPDI+9Nedhv+26nnbdre43Av8DSMhGwPTI6CcAAAAASUVORK5CYII="
+        _tl_lock_displayable   = _tl_data_displayable(_tl_base64.b64decode(_WELLS_TL_LOCK_B64),   "wells_tl_icon_lock.png")
+        _tl_unlock_displayable = _tl_data_displayable(_tl_base64.b64decode(_WELLS_TL_UNLOCK_B64), "wells_tl_icon_unlock.png")
     except Exception:
         _tl_lock_displayable   = None
         _tl_unlock_displayable = None
@@ -37,9 +65,9 @@ init -2 python:
         if not hasattr(renpy, "screenshot_to_bytes"):
             return None
         try:
-            return renpy.screenshot_to_bytes((TL_THUMB_WIDTH, TL_THUMB_HEIGHT))
+            return renpy.screenshot_to_bytes((WELLS_TL_THUMB_WIDTH, WELLS_TL_THUMB_HEIGHT))
         except Exception as e:
-            _tl_log("TL screenshot failed: {}".format(e))
+            _tl_log("Timeline screenshot failed: {}".format(e))
             return None
 
     def _tl_normalize_img_name(value):
@@ -72,12 +100,12 @@ init -2 python:
             for attr, val in attrs.items():
                 img = _tl_normalize_img_name(val)
                 if img:
-                    if TL_DEBUG_ASSET:
-                        _tl_log("TL scene img fallback attr: type={} attr={} img={}".format(
+                    if WELLS_TL_DEBUG_ASSET:
+                        _tl_log("Timeline scene img fallback attr: type={} attr={} img={}".format(
                             type(stmt).__name__, attr, img))
                     return img
         except Exception as e:
-            _tl_log("TL scene_stmt_img_name failed: {}".format(e))
+            _tl_log("Timeline scene_stmt_img_name failed: {}".format(e))
         return None
 
     def _tl_stmt_ast_key(stmt):
@@ -122,7 +150,7 @@ init -2 python:
                     cache[img_name] = True
                     return True
         except Exception as e:
-            _tl_log("TL img_name_is_movie failed for {}: {}".format(img_name, e))
+            _tl_log("Timeline img_name_is_movie failed for {}: {}".format(img_name, e))
             cache[img_name] = False
             return False
         cache[img_name] = False
@@ -133,10 +161,10 @@ init -2 python:
         if not img_name:
             return None
         return (
-            TL_ASSET_THUMB_CACHE_VERSION,
+            WELLS_TL_ASSET_THUMB_CACHE_VERSION,
             img_name,
-            width or TL_THUMB_WIDTH,
-            height or TL_THUMB_HEIGHT,
+            width or WELLS_TL_THUMB_WIDTH,
+            height or WELLS_TL_THUMB_HEIGHT,
             fit_mode,
         )
 
@@ -152,8 +180,8 @@ init -2 python:
             return None
         return (
             img_name,
-            width or TL_THUMB_WIDTH,
-            height or TL_THUMB_HEIGHT,
+            width or WELLS_TL_THUMB_WIDTH,
+            height or WELLS_TL_THUMB_HEIGHT,
             fit_mode,
         )
 
@@ -172,7 +200,7 @@ init -2 python:
         try:
             root = renpy.display.image.images.get(tuple(img_name.split()))
         except Exception as e:
-            _tl_log("TL resolve_asset_file root failed: {}".format(e))
+            _tl_log("Timeline resolve_asset_file root failed: {}".format(e))
             root = None
         if root is None:
             _tl_asset_thumb_file_cache[img_name] = None
@@ -196,7 +224,7 @@ init -2 python:
             try:
                 files = obj.predict_files() if hasattr(obj, "predict_files") else []
             except Exception as e:
-                _tl_log("TL resolve_asset_file walk failed: {}".format(e))
+                _tl_log("Timeline resolve_asset_file walk failed: {}".format(e))
                 files = []
             for path in (files or []):
                 if _tl_is_supported_thumb_file(path) and renpy.loadable(path):
@@ -240,8 +268,8 @@ init -2 python:
         """Generate thumbnail bytes from a plain file-backed registered image."""
         if not img_name:
             return None
-        thumb_w = width or TL_THUMB_WIDTH
-        thumb_h = height or TL_THUMB_HEIGHT
+        thumb_w = width or WELLS_TL_THUMB_WIDTH
+        thumb_h = height or WELLS_TL_THUMB_HEIGHT
         try:
             import tempfile
             import pygame
@@ -257,12 +285,12 @@ init -2 python:
                 return None
 
             if fit_mode == "cover":
-                scale = _TL_MAX(float(thumb_w) / float(src_w), float(thumb_h) / float(src_h))
+                scale = _WELLS_TL_MAX(float(thumb_w) / float(src_w), float(thumb_h) / float(src_h))
             else:
-                scale = _TL_MIN(float(thumb_w) / float(src_w), float(thumb_h) / float(src_h))
+                scale = _WELLS_TL_MIN(float(thumb_w) / float(src_w), float(thumb_h) / float(src_h))
 
-            scaled_w = _TL_MAX(1, int(round(src_w * scale)))
-            scaled_h = _TL_MAX(1, int(round(src_h * scale)))
+            scaled_w = _WELLS_TL_MAX(1, int(round(src_w * scale)))
+            scaled_h = _WELLS_TL_MAX(1, int(round(src_h * scale)))
 
             try:
                 renpy.display.render.blit_lock.acquire()
@@ -272,13 +300,13 @@ init -2 python:
 
             surf = renpy.display.pgrender.surface((thumb_w, thumb_h), True)
             if fit_mode == "cover":
-                crop_x = _TL_MAX(0, int(round((scaled_w - thumb_w) / 2.0)))
-                crop_y = _TL_MAX(0, int(round((scaled_h - thumb_h) / 2.0)))
-                crop = scaled.subsurface((crop_x, crop_y, _TL_MIN(thumb_w, scaled_w - crop_x), _TL_MIN(thumb_h, scaled_h - crop_y)))
+                crop_x = _WELLS_TL_MAX(0, int(round((scaled_w - thumb_w) / 2.0)))
+                crop_y = _WELLS_TL_MAX(0, int(round((scaled_h - thumb_h) / 2.0)))
+                crop = scaled.subsurface((crop_x, crop_y, _WELLS_TL_MIN(thumb_w, scaled_w - crop_x), _WELLS_TL_MIN(thumb_h, scaled_h - crop_y)))
                 surf.blit(crop, (0, 0))
             else:
-                dst_x = _TL_MAX(0, int(round((thumb_w - scaled_w) / 2.0)))
-                dst_y = _TL_MAX(0, int(round((thumb_h - scaled_h) / 2.0)))
+                dst_x = _WELLS_TL_MAX(0, int(round((thumb_w - scaled_w) / 2.0)))
+                dst_y = _WELLS_TL_MAX(0, int(round((thumb_h - scaled_h) / 2.0)))
                 surf.blit(scaled, (dst_x, dst_y))
 
             if surf is None:
@@ -294,7 +322,7 @@ init -2 python:
                 except Exception:
                     pass
         except Exception as e:
-            _tl_log("TL asset thumb render failed for {}: {}".format(img_name, e))
+            _tl_log("Timeline asset thumb render failed for {}: {}".format(img_name, e))
             return None
 
     def _tl_get_asset_thumb_bytes(img_name, generate=False, width=None, height=None, fit_mode="cover"):
@@ -305,8 +333,8 @@ init -2 python:
         cache = getattr(renpy.game, "_tl_asset_thumb_cache", {})
         thumb_bytes = cache.get(cache_key)
         if thumb_bytes is not None:
-            if TL_DEBUG_ASSET:
-                _tl_log("TL asset thumb hit: img_name={}".format(img_name))
+            if WELLS_TL_DEBUG_ASSET:
+                _tl_log("Timeline asset thumb hit: img_name={}".format(img_name))
             return thumb_bytes
         if not generate or _tl_img_name_is_movie(img_name):
             return None
@@ -314,8 +342,8 @@ init -2 python:
         if thumb_bytes:
             cache[cache_key] = thumb_bytes
             persistent._tl_asset_thumb_dirty = True
-            if TL_DEBUG_ASSET:
-                _tl_log("TL asset thumb generated: img_name={}".format(img_name))
+            if WELLS_TL_DEBUG_ASSET:
+                _tl_log("Timeline asset thumb generated: img_name={}".format(img_name))
         return thumb_bytes
 
     def _tl_resolve_live_menu_img_name():
@@ -327,7 +355,7 @@ init -2 python:
         try:
             master = renpy.game.context().scene_lists.layers.get("master", []) or []
         except Exception as e:
-            _tl_log("TL live img_name scene_lists failed: {}".format(e))
+            _tl_log("Timeline live img_name scene_lists failed: {}".format(e))
             return None
 
         fallback = None
@@ -352,9 +380,9 @@ init -2 python:
                 ext = "jpg"
             else:
                 ext = "png"
-            return _tl_im_Data(thumb_bytes, "tl_t_{}.{}".format(index, ext))
+            return _tl_data_displayable(thumb_bytes, "tl_t_{}.{}".format(index, ext))
         except Exception as e:
-            _tl_log("TL thumb displayable failed: {}".format(e))
+            _tl_log("Timeline thumb displayable failed: {}".format(e))
             return None
 
     def _tl_node_thumb(node):
@@ -362,6 +390,8 @@ init -2 python:
         b = node.get("thumb_bytes")
         if b:
             return b
+        if node.get("_tl_thumb_capture_pending"):
+            return None
         key = str(node["ast_key"]) if node.get("ast_key") else None
         thumb_cache = getattr(renpy.game, "_tl_thumb_cache", {})
         return thumb_cache.get(key) if key else None
@@ -374,27 +404,33 @@ init -2 python:
         asset_thumb = _tl_get_asset_thumb_bytes(
             img_name,
             generate=True,
-            width=TL_THUMB_WIDTH,
-            height=TL_THUMB_HEIGHT,
+            width=WELLS_TL_THUMB_WIDTH,
+            height=WELLS_TL_THUMB_HEIGHT,
             fit_mode="cover",
         )
+        asset_path = _tl_resolve_asset_file(img_name)
         if asset_thumb:
             base = _tl_thumb_displayable(asset_thumb, _tl_asset_thumb_display_id(img_name))
-        elif _tl_resolve_asset_file(img_name):
-            ## Alternativa segura para imagens de arquivo quando a geração da miniatura falha.
-            base = img_name
+        elif asset_path:
+            ## Usa o arquivo real, não o nome lógico da imagem, como fonte alternativa.
+            base = renpy.display.im.Image(asset_path)
         else:
             ## Imagens dinâmicas (por exemplo, ConditionSwitch ou composições) não podem ser
             ## renderizadas com segurança diretamente na tela do Timeline.
             return None
-        disp = Transform(
-            base,
-            xsize=width,
-            ysize=height,
-            fit=fit_mode,
-            xalign=0.5,
-            yalign=0.5,
-        )
+        try:
+            disp = Transform(
+                base,
+                xsize=width,
+                ysize=height,
+                fit=fit_mode,
+                xalign=0.5,
+                yalign=0.5,
+            )
+        except Exception:
+            ## Ren'Py 7.3.5 não aceita ysize/fit no construtor Transform.
+            ## im.Scale mantém a miniatura dimensionada nesse SDK antigo.
+            disp = renpy.display.im.Scale(base, width, height)
         if cache_key:
             _tl_asset_thumb_displayable_cache[cache_key] = disp
         return disp
@@ -433,12 +469,12 @@ init -2 python:
                         persistent._tl_menu_scene_map[menu_key] = last_img
                         new_entries[0] += 1
                     else:
-                        if TL_DEBUG_ASSET:
-                            _tl_log("TL ast-walk miss: menu=({},{}) last_img=None".format(
+                        if WELLS_TL_DEBUG_ASSET:
+                            _tl_log("Timeline ast-walk miss: menu=({},{}) last_img=None".format(
                                 node.filename, node.linenumber))
             return last_img
 
         _tl_walk_ast_blocks(nodes, visitor, initial_state=None)
-        if new_entries[0] and TL_DEBUG_ASSET:
-            _tl_log("TL menu_scene_map: {} new entries cached".format(new_entries[0]))
+        if new_entries[0] and WELLS_TL_DEBUG_ASSET:
+            _tl_log("Timeline menu_scene_map: {} new entries cached".format(new_entries[0]))
 

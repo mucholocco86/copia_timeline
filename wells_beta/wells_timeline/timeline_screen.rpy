@@ -4,13 +4,11 @@
 
 ## Atalhos de teclado
 init python:
-    config.overlay_screens.append("_tl_debug_overlay")
-
-init:
-    transform tl_layer_blur:
-        blur 48
-        matrixcolor SaturationMatrix(0.6)
-
+    try:
+        config.overlay_screens.append("wells_tl_debug_overlay")
+    except Exception:
+        ## Ren'Py 6.99 não tem overlay_screens; a tela de depuração é opcional.
+        pass
 
 init python:
     def _tl_capture_hover_pos():
@@ -24,24 +22,24 @@ init python:
 ## Ordem alternativa: snapshot -> pré-save -> save Wells wf_* (aceita o legado _ch_*).
 ## =============================================================================
 
-label _tl_do_load:
+label wells_tl_do_load:
     if getattr(renpy.game, "_tl_pending_snap", None) is not None:
-        $ _tl_log("TL do_load: dispatching snapshot unfreeze")
+        $ _tl_log("Timeline do_load: dispatching snapshot unfreeze")
         $ _snap = renpy.game._tl_pending_snap
         $ renpy.game._tl_pending_snap = None
         $ _tl_unfreeze_from_snapshot(_snap)
     elif _tl_load_slot:
-        $ _tl_log("TL do_load: dispatching load slot={}".format(_tl_load_slot))
+        $ _tl_log("Timeline do_load: dispatching load slot={}".format(_tl_load_slot))
         $ renpy.load(_tl_load_slot)
     else:
-        $ _tl_log("TL do_load: nothing to dispatch (no snap, no slot)")
+        $ _tl_log("Timeline do_load: nothing to dispatch (no snap, no slot)")
     return
 
 ## =============================================================================
 ## Tela principal do Timeline
 ## =============================================================================
 
-screen timeline():
+screen wells_timeline():
     modal True
     zorder 200
 
@@ -51,9 +49,8 @@ screen timeline():
     default _tl_locked_count   = _tl_count_locked_branches()
 
 
-    add tl_layer_blur
     add Solid("#111111cc")
-    add _tl_noise_bg()
+    add Solid("#ffffff0c")
 
     python:
         _tl_window_small = renpy.variant("small")
@@ -68,7 +65,10 @@ screen timeline():
         yalign 0.4
         xsize _tl_window_w
         ysize _tl_window_h
-        padding _tl_window_padding
+        left_padding _tl_window_padding[0]
+        top_padding _tl_window_padding[1]
+        right_padding _tl_window_padding[2]
+        bottom_padding _tl_window_padding[3]
         background Frame("wells/timeline/gui/frame.png", 10, 10)
 
         vbox:
@@ -76,10 +76,12 @@ screen timeline():
             spacing 0
 
             frame:
-                style "tl_frame_base"
                 xfill True
-                background Solid(TL["header_bg"])
-                padding wells_ui_pad(40, 20)
+                background Solid("#0f0f0f77")
+                left_padding wells_ui_signed(40)
+                top_padding wells_ui_signed(20)
+                right_padding wells_ui_signed(40)
+                bottom_padding wells_ui_signed(20)
 
                 hbox:
                     xfill True
@@ -89,20 +91,21 @@ screen timeline():
                     vbox:
                         spacing 4
                         text "TIMELINE":
-                            style "tl_base_bold"
-                            size TL_SIZE_TITLE
-                            color TL["header_text"]
+                            font "wells/fonts/Roboto-Regular.ttf"
+                            bold True
+                            size 38
+                            color "#ff1c1cf1"
                         text ("Rastreamento de Rotas" if tl_view == "route" else "Histórico de Escolhas"):
-                            style "tl_base"
-                            size TL_SIZE_BODY
-                            color TL["header_sub"]
+                            font "wells/fonts/Roboto-Regular.ttf"
+                            size 21
+                            color "#b9b6b0"
 
                     null xfill True
 
                     ## ── Alternância entre rotas e cartões ───────────────────────────────
                     python:
-                        _tl_btn_cards_color = TL["header_text"] if tl_view == "cards" else TL["header_sub"]
-                        _tl_btn_route_color = TL["header_text"] if tl_view == "route" else TL["header_sub"]
+                        _tl_btn_cards_color = "#e0dfdc" if tl_view == "cards" else "#9a9183"
+                        _tl_btn_route_color = "#e0dfdc" if tl_view == "route" else "#9a9183"
 
                     hbox:
                         spacing 8
@@ -111,27 +114,33 @@ screen timeline():
                         button:
                             idle_background Frame("wells/timeline/gui/Button-idle.png", 5, 5)
                             hover_background Frame("wells/timeline/gui/Button-hover.png", 5, 5)
-                            padding wells_ui_pad(18, 9, 18,9)
+                            left_padding wells_ui_signed(18)
+                            top_padding wells_ui_signed(9)
+                            right_padding wells_ui_signed(18)
+                            bottom_padding wells_ui_signed(9)
                             action SetScreenVariable("tl_view", "cards")
 
                             text "Histórico":
-                                style "tl_base"
-                                size TL_SIZE_SUBTITLE
+                                font "wells/fonts/Roboto-Regular.ttf"
+                                size 17
                                 color _tl_btn_cards_color
-                                hover_color TL["header_text"]
+                                hover_color "#f0ece4"
                                 yalign 0.5
 
                         button:
                             idle_background Frame("wells/timeline/gui/Button-idle.png", 5, 5)
                             hover_background Frame("wells/timeline/gui/Button-hover.png", 5, 5)
-                            padding wells_ui_pad(18, 9, 18,9)
+                            left_padding wells_ui_signed(18)
+                            top_padding wells_ui_signed(9)
+                            right_padding wells_ui_signed(18)
+                            bottom_padding wells_ui_signed(9)
                             action SetScreenVariable("tl_view", "route")
 
                             text "Rotas":
-                                style "tl_base"
-                                size TL_SIZE_SUBTITLE
+                                font "wells/fonts/Roboto-Regular.ttf"
+                                size 17
                                 color _tl_btn_route_color
-                                hover_color TL["header_text"]
+                                hover_color "#f0ece4"
                                 yalign 0.5
 
                     null xsize 16
@@ -140,7 +149,7 @@ screen timeline():
                         python:
                             _tl_notifs_on    = getattr(persistent, "_tl_var_notifs_enabled", True)
                             _tl_notifs_label = "Avisos de mudanças ✓" if _tl_notifs_on else "Avisos de mudanças ✗"
-                            _tl_notifs_color = TL["header_text"] if _tl_notifs_on else TL["header_sub"]
+                            _tl_notifs_color = "#f0ece4" if _tl_notifs_on else "#9a9183"
                         hbox:
                             spacing 8
                             yalign 0.5
@@ -148,14 +157,17 @@ screen timeline():
                             button:
                                 idle_background Frame("wells/timeline/gui/Button-idle.png", 5, 5)
                                 hover_background Frame("wells/timeline/gui/Button-hover.png", 5, 5)
-                                padding wells_ui_pad(18, 9, 18,9)
+                                left_padding wells_ui_signed(18)
+                                top_padding wells_ui_signed(9)
+                                right_padding wells_ui_signed(18)
+                                bottom_padding wells_ui_signed(9)
                                 action ToggleField(persistent, "_tl_var_notifs_enabled")
 
                                 text _tl_notifs_label:
-                                    style "tl_base"
-                                    size TL_SIZE_SUBTITLE
+                                    font "wells/fonts/Roboto-Regular.ttf"
+                                    size 17
                                     color _tl_notifs_color
-                                    hover_color TL["header_text"]
+                                    hover_color "#f0ece4"
                                     yalign 0.5
 
                         null xsize 16
@@ -176,16 +188,16 @@ screen timeline():
                                     spacing 10
                                     yalign 0.5
                                     text "●":
-                                        style "tl_icon"
-                                        size TL_SIZE_DOT
+                                        font "wells/fonts/Roboto-Regular.ttf"
+                                        size 14
                                         color "#FFFFFF"
                                         yalign 0.5
                                         italic False
                                     text "{} {} com novos caminhos.".format(
                                             _tl_playthrough_new,
                                             "escolha" if _tl_playthrough_new == 1 else "escolhas"): 
-                                        style "tl_base"
-                                        size TL_SIZE_BODY
+                                        font "wells/fonts/Roboto-Regular.ttf"
+                                        size 21
                                         color "#FFFFFF"
                                         yalign 0.5
 
@@ -194,8 +206,8 @@ screen timeline():
                                     spacing 10
                                     yalign 0.5
                                     text "●":
-                                        style "tl_icon"
-                                        size TL_SIZE_DOT
+                                        font "wells/fonts/Roboto-Regular.ttf"
+                                        size 14
                                         color "#FFFFFF"
                                         yalign 0.5
                                         italic False
@@ -203,8 +215,8 @@ screen timeline():
                                             _tl_locked_count,
                                             "ramo" if _tl_locked_count == 1 else "ramos",
                                             "" if _tl_locked_count == 1 else "s"): 
-                                        style "tl_base"
-                                        size TL_SIZE_BODY
+                                        font "wells/fonts/Roboto-Regular.ttf"
+                                        size 21
                                         color "#FFFFFF"
                                         yalign 0.5
                         null xsize 20
@@ -216,14 +228,17 @@ screen timeline():
                             button:
                                 idle_background Frame("wells/timeline/gui/Button-idle.png", 5, 5)
                                 hover_background Frame("wells/timeline/gui/Button-hover.png", 5, 5)
-                                padding wells_ui_pad(18, 9, 18,9)
-                                action [Function(_tl_cancel_jump), Hide("timeline"), Jump("_tl_do_load")]
+                                left_padding wells_ui_signed(18)
+                                top_padding wells_ui_signed(9)
+                                right_padding wells_ui_signed(18)
+                                bottom_padding wells_ui_signed(9)
+                                action [Function(_tl_cancel_jump), Hide("wells_timeline"), Jump("wells_tl_do_load")]
 
                                 text "Reverter":
-                                    style "tl_base"
-                                    size TL_SIZE_BODY
-                                    color TL["header_sub"]
-                                    hover_color TL["accent"]
+                                    font "wells/fonts/Roboto-Regular.ttf"
+                                    size 21
+                                    color "#d3d2cf"
+                                    hover_color "#2bff00"
                                     yalign 0.5
 
                     null xsize wells_ui(14)
@@ -232,24 +247,29 @@ screen timeline():
                         spacing 8
                         yalign 0.5
                         button:
-                            padding wells_ui_pad(0, 0, 0, 0)
+                            left_padding wells_ui_signed(0)
+                            top_padding wells_ui_signed(0)
+                            right_padding wells_ui_signed(0)
+                            bottom_padding wells_ui_signed(0)
                             xysize (wells_ui(100), wells_ui(40))
                             idle_background Frame("wells/timeline/gui/Button-idle.png", 5, 5)
                             hover_background Frame("wells/timeline/gui/Button-hover.png", 5, 5)
-                            action [Function(renpy.layer_at_list, [], layer="master"), Hide("timeline")]
+                            action [Function(renpy.layer_at_list, [], layer="master"), Hide("wells_timeline")]
                             text _("Fechar") xalign 0.5 yalign 0.5 size wells_ui(22) hover_color "#2bff00"
 
             frame:
-                style "tl_frame_base"
+                xpadding 0
+                ypadding 0
                 xfill True ysize 3
-                background Solid("#FFFFFF")
+                background Solid("#e6161691")
 
             if tl_view == "route":
-                use tl_route(tl_route_expanded, tl_route_hover, _tl_content_w)
+                use wells_tl_route(tl_route_expanded, tl_route_hover, _tl_content_w)
 
             elif not _tl_history:
                 frame:
-                    style "tl_frame_base"
+                    xpadding 0
+                    ypadding 0
                     xfill True yfill True
                     background None
 
@@ -257,19 +277,20 @@ screen timeline():
                         xalign 0.5 yalign 0.5
                         spacing 12
                         text "Nenhuma escolha foi registrada ainda.":
-                            style "tl_base_bold"
-                            size TL_SIZE_BODY
-                            color TL["header_text"]
+                            font "wells/fonts/Roboto-Regular.ttf"
+                            bold True
+                            size 21
+                            color "#f0ece4"
                             xalign 0.5
                         text "O Timeline registra as escolhas a partir do momento em que foi instalado.":
-                            style "tl_base"
-                            size TL_SIZE_BODY
-                            color TL["header_sub"]
+                            font "wells/fonts/Roboto-Regular.ttf"
+                            size 21
+                            color "#9a9183"
                             xalign 0.5
                         text "Continue jogando para ver suas escolhas aqui.":
-                            style "tl_base"
-                            size TL_SIZE_BODY
-                            color TL["header_sub"]
+                            font "wells/fonts/Roboto-Regular.ttf"
+                            size 21
+                            color "#9a9183"
                             xalign 0.5
             else:
                 side "c r":
@@ -304,12 +325,14 @@ screen timeline():
                                 if _tl_cur_row:
                                     _tl_items.append(list(_tl_cur_row))
                             except Exception as _build_err:
-                                _tl_log("TL screen ERROR building items: {}".format(_build_err))
+                                _tl_log("Timeline screen ERROR building items: {}".format(_build_err))
 
                         frame:
-                            style "tl_frame_base"
                             xfill True
-                            padding wells_ui_pad(40, 30)
+                            left_padding wells_ui_signed(40)
+                            top_padding wells_ui_signed(30)
+                            right_padding wells_ui_signed(40)
+                            bottom_padding wells_ui_signed(30)
                             background None
 
                             vbox:
@@ -321,7 +344,7 @@ screen timeline():
                                         spacing _tl_spacing
 
                                         for _node in _row:
-                                            use tl_card(_node, _tl_card_w)
+                                            use wells_tl_card(_node, _tl_card_w)
 
                                         python:
                                             _tl_pad_count = _tl_cols - len(_row)
@@ -335,14 +358,14 @@ screen timeline():
 
 
     if _tl_modal_node is not None:
-        use tl_modal(_tl_modal_node)
+        use wells_tl_modal(_tl_modal_node)
 
     ## ── Dica de rota — acompanha o cursor; fica no nível da tela para xpos/ypos funcionar
     if tl_view == "route" and tl_route_hover is not None:
         python:
             _tt_hx, _tt_hy = getattr(store, "_tl_route_hover_pos", (0, 0))
-            _tt_x  = _TL_MIN(_tt_hx + 14, config.screen_width  - 240)
-            _tt_y  = _TL_MIN(_tt_hy + 14, config.screen_height - 160)
+            _tt_x  = _WELLS_TL_MIN(_tt_hx + 14, config.screen_width  - 240)
+            _tt_y  = _WELLS_TL_MIN(_tt_hy + 14, config.screen_height - 160)
             _tt_numeric = tl_route_hover in (getattr(persistent, "_tl_var_is_numeric", None) or set())
             _tt_domain  = [] if _tt_numeric else (
                 (getattr(persistent, "_tl_var_domain", None) or {}).get(tl_route_hover) or []
@@ -351,11 +374,11 @@ screen timeline():
 
         if _tt_domain:
             frame:
-                style "tl_frame_base"
-                background Solid(TL["modal_bg"])
+                background Solid("#080808f6")
                 xpos _tt_x
                 ypos _tt_y
-                padding (14, 12, 14, 12)
+                xpadding 14
+                ypadding 12
                 xsize 220
 
                 vbox:
@@ -363,15 +386,17 @@ screen timeline():
                     spacing 10
 
                     text "Rotas possíveis":
-                        style "tl_base_bold"
-                        size TL_SIZE_BODY
-                        color TL["header_text"]
+                        font "wells/fonts/Roboto-Regular.ttf"
+                        bold True
+                        size 21
+                        color "#e9e7e4"
 
                     frame:
-                        style "tl_frame_base"
+                        xpadding 0
+                        ypadding 0
                         xfill True
                         ysize 1
-                        background Solid(TL["header_sub"] + "44")
+                        background Solid("#e6161691")
 
                     vbox:
                         xfill True
@@ -379,7 +404,7 @@ screen timeline():
                         for _tt_val in _tt_domain:
                             python:
                                 _tt_is_cur    = (_tt_val == _tt_cur)
-                                _tt_val_color = TL["header_text"] if _tt_is_cur else TL["header_sub"]
+                                _tt_val_color = "#f0ece4" if _tt_is_cur else "#9a9183"
 
                             hbox:
                                 xfill True
@@ -389,21 +414,18 @@ screen timeline():
 
                                 if _tt_is_cur:
                                     text "→":
-                                        style "tl_base"
-                                        size TL_SIZE_BODY
+                                        font "wells/fonts/Roboto-Regular.ttf"
+                                        size 21
                                         color _tt_val_color
                                         yalign 0.5
                                 else:
                                     null xsize 14
 
                                 text _tl_strip_renpy_tags(_tt_val):
-                                    style "tl_base"
-                                    size TL_SIZE_BODY
+                                    font "wells/fonts/Roboto-Regular.ttf"
+                                    size 21
                                     color _tt_val_color
                                     yalign 0.5
 
-
-
 ## Os cartões ficam em ui/tl_screens.rpy.
 ## A janela modal fica em ui/tl_screens.rpy.
-

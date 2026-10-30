@@ -15,7 +15,17 @@
 
 init -2 python:
 
-    _TL_EMPTY_PNG = (
+    import renpy.execution as _tl_execution
+    _WELLS_TL_RESTART_EXCEPTIONS = tuple(
+        exc_type for exc_type in (
+            getattr(renpy.game, "RestartTopContext", None),
+            getattr(renpy.game, "RestartContext", None),
+            getattr(_tl_execution, "RestartTopContext", None),
+            getattr(_tl_execution, "RestartContext", None),
+        ) if exc_type is not None
+    )
+
+    _WELLS_TL_EMPTY_PNG = (
         b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
         b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00"
         b"\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
@@ -29,7 +39,7 @@ init -2 python:
         else:
             iface = renpy.game.interface
             try:
-                iface.get_screenshot = lambda: _TL_EMPTY_PNG
+                iface.get_screenshot = lambda: _WELLS_TL_EMPTY_PNG
                 renpy.save(slot)
             finally:
                 try:
@@ -88,37 +98,46 @@ init -2 python:
 
     ## ── Funções internas da versão 2 ──────────────────────────────────────────────────
 
-    def _write_recovery():
+    def _wf_tl_write_recovery():
         persistent._tl_recovery_slot = None
         _tl_save_no_screenshot("wf_recovery")
         persistent._tl_recovery_slot = "wf_recovery"
 
-    def _replay_entries(hist):
-        return [
-            {
-                "index"        : n["index"],
-                "chosen_index" : n["chosen_index"],
-                "ast_key"      : _tl_node_menu_site_key(n),
-            }
-            for n in hist if n.get("chosen_index") is not None
-        ]
+    def _wf_tl_replay_entries(hist):
+        entries = []
+        for node in hist:
+            if node.get("chosen_index") is None:
+                continue
+            entries.append({
+                "index": node["index"],
+                "chosen_index": node["chosen_index"],
+                "option_ast_index": node.get("chosen_ast_index"),
+                "ast_key": _tl_node_menu_site_key(node),
+            })
+        return entries
 
-    def _stage_menu_replay(hist, node_index, option_index):
+    def _wf_tl_stage_menu_replay(hist, node_index, option_index):
         prev_node = next((n for n in hist if n["index"] == node_index - 1), None)
-        persistent._tl_replay_path   = _replay_entries(hist)
-        persistent._tl_replay_target = {"node_index": node_index, "option_index": option_index}
-        persistent._tl_prev_thumb    = prev_node["thumb_bytes"] if prev_node else None
-        persistent._tl_replaying     = True
+        target_node = next((n for n in hist if n["index"] == node_index), None)
+        option_ast_index = _tl_node_option_ast_index(target_node, option_index)
+        persistent._tl_replay_path = _wf_tl_replay_entries(hist)
+        persistent._tl_replay_target = {
+            "node_index": node_index,
+            "option_index": option_index,
+            "option_ast_index": option_ast_index,
+        }
+        persistent._tl_prev_thumb = prev_node["thumb_bytes"] if prev_node else None
+        persistent._tl_replaying = True
 
-    def _dispatch_snap(snap):
+    def _wf_tl_dispatch_snap(snap):
         persistent._tl_synthetic_jump = True
         renpy.save_persistent()
         renpy.game._tl_pending_snap = snap
 
-    def _valid_snap(snap):
+    def _wf_tl_valid_snap(snap):
         return bool(snap and snap.get("roots") and snap.get("context") is not None)
 
-    def _find_slot(node_index, hist, context):
+    def _wf_tl_find_slot(node_index, hist, context):
         """
         Tier 1: exact pre-save at target index.
         Tier 2: walk history downward from node_index-1; first hit wins (closest save).
@@ -157,16 +176,16 @@ init -2 python:
         hist    = list(getattr(store, "_tl_history", []))
         context = list(store._tl_context)
         try:
-            _write_recovery()
-            _stage_menu_replay(hist, node_index, option_index)
+            _wf_tl_write_recovery()
+            _wf_tl_stage_menu_replay(hist, node_index, option_index)
             renpy.save_persistent()
 
             snap = _tl_get_menu_snapshot(node_index)
-            if _valid_snap(snap):
-                _dispatch_snap(snap)
+            if _wf_tl_valid_snap(snap):
+                _wf_tl_dispatch_snap(snap)
                 return
 
-            fallback_slot = _find_slot(node_index, hist, context)
+            fallback_slot = _wf_tl_find_slot(node_index, hist, context)
             if fallback_slot:
                 store._tl_load_slot = fallback_slot
                 return
@@ -174,10 +193,10 @@ init -2 python:
             _tl_clear_replay_state()
             renpy.notify("Nenhum salvamento encontrado para essa escolha.")
 
-        except (renpy.game.RestartTopContext, renpy.game.RestartContext):
+        except _WELLS_TL_RESTART_EXCEPTIONS:
             raise
         except Exception as exc:
-            _tl_log("TL jump ERROR {}: {}".format(node_index, exc))
+            _tl_log("Timeline jump ERROR {}: {}".format(node_index, exc))
             _tl_clear_replay_state()
 
     def _tl_cancel_jump():
@@ -195,10 +214,10 @@ init -2 python:
                 if cache_key and node.get("thumb_bytes") and cache_key not in thumb_cache:
                     thumb_cache[cache_key] = node["thumb_bytes"]
                     node["thumb_bytes"] = None
-                    while len(thumb_cache) > TL_THUMB_CACHE_MAX:
+                    while len(thumb_cache) > WELLS_TL_THUMB_CACHE_MAX:
                         thumb_cache.pop(next(iter(thumb_cache)))
         except Exception as exc:
-            _tl_log("TL cancel thumb cache error: {}".format(exc))
+            _tl_log("Timeline cancel thumb cache error: {}".format(exc))
         
         _tl_clear_replay_state()
         if slot:
@@ -222,7 +241,7 @@ init -2 python:
         try:
             translator = renpy.game.script.translator
         except Exception as e:
-            _tl_log("TL find_scene_seen_name: translator unavailable: {}".format(e))
+            _tl_log("Timeline find_scene_seen_name: translator unavailable: {}".format(e))
             translator = None
         node = start_node
         hops = 0
@@ -250,7 +269,7 @@ init -2 python:
         try:
             translator = renpy.game.script.translator
         except Exception as e:
-            _tl_log("TL say_seen_name: translator unavailable: {}".format(e))
+            _tl_log("Timeline say_seen_name: translator unavailable: {}".format(e))
             translator = None
         translated_node = translator.lookup_translate(ident) if (translator and ident) else None
         seen_node = translated_node if (translated_node is not None and not isinstance(translated_node, tuple)) else node
@@ -281,7 +300,7 @@ init -2 python:
                 node = getattr(node, "next", None)
                 hops += 1
         except Exception as e:
-            _tl_log("TL follow_jump_seen_name failed for '{}': {}".format(target, e))
+            _tl_log("Timeline follow_jump_seen_name failed for '{}': {}".format(target, e))
         return None
 
     def _tl_first_scene_seen_name(block):
@@ -403,7 +422,7 @@ init -2 python:
             elif seen_fn[0] == "label":
                 return renpy.seen_label(seen_fn[1])
         except Exception as e:
-            _tl_log("TL eval_seen_fn failed: desc={} err={}".format(seen_fn, e))
+            _tl_log("Timeline eval_seen_fn failed: desc={} err={}".format(seen_fn, e))
         return False
 
     def _tl_option_seen(node, option_index):
@@ -414,12 +433,12 @@ init -2 python:
             peek = _tl_option_peek_seen_fn(node, option_index)
             if peek is not None:
                 result = _tl_eval_seen_fn(peek)
-                if TL_DEBUG_SEEN:
-                    _tl_log("TL opt_seen: node={} opt={} src=peek desc={} result={}".format(
+                if WELLS_TL_DEBUG_SEEN:
+                    _tl_log("Timeline opt_seen: node={} opt={} src=peek desc={} result={}".format(
                         node.get("index"), option_index, peek, result))
                 return result
         except Exception as e:
-            _tl_log("TL opt_seen peek_err: node={} opt={} err={}".format(node.get("index"), option_index, e))
+            _tl_log("Timeline opt_seen peek_err: node={} opt={} err={}".format(node.get("index"), option_index, e))
 
         ## Consulta direta a persistent._chosen — dicionário ativo e autoritativo.
         ## ChoiceReturn grava (localização, label) → True quando uma opção é escolhida.
@@ -429,8 +448,8 @@ init -2 python:
         if location is not None and option_index < len(node.get("options", [])):
             label = node["options"][option_index]
             if persistent._chosen and (location, label) in persistent._chosen:
-                if TL_DEBUG_SEEN:
-                    _tl_log("TL opt_seen: node={} opt={} src=chosen loc={} label={} result=True".format(
+                if WELLS_TL_DEBUG_SEEN:
+                    _tl_log("Timeline opt_seen: node={} opt={} src=chosen loc={} label={} result=True".format(
                         node.get("index"), option_index, location, repr(label)))
                 return True
 
@@ -442,16 +461,16 @@ init -2 python:
             if cr is not None:
                 try:
                     result = bool(cr.get_chosen())
-                    if result and TL_DEBUG_SEEN:
-                        _tl_log("TL opt_seen: node={} opt={} src=cr result=True".format(
+                    if result and WELLS_TL_DEBUG_SEEN:
+                        _tl_log("Timeline opt_seen: node={} opt={} src=cr result=True".format(
                             node.get("index"), option_index))
                     return result
                 except Exception as e:
-                    _tl_log("TL opt_seen cr.get_chosen failed: node={} opt={} err={}".format(
+                    _tl_log("Timeline opt_seen cr.get_chosen failed: node={} opt={} err={}".format(
                         node.get("index"), option_index, e))
 
-        if TL_DEBUG_SEEN:
-            _tl_log("TL opt_seen: node={} opt={} src=none result=False".format(
+        if WELLS_TL_DEBUG_SEEN:
+            _tl_log("Timeline opt_seen: node={} opt={} src=none result=False".format(
                 node.get("index"), option_index))
         return False
 
@@ -469,8 +488,8 @@ init -2 python:
 
         menu = (_tl_live_menu_lookup() or {}).get(tuple(ast_key))
         if menu is None:
-            if TL_DEBUG_SEEN:
-                _tl_log("TL peek_seen: node={} opt={} key={} menu_lookup=None".format(
+            if WELLS_TL_DEBUG_SEEN:
+                _tl_log("Timeline peek_seen: node={} opt={} key={} menu_lookup=None".format(
                     node.get("index"), option_index, ast_key))
             return None
 
@@ -512,7 +531,7 @@ init -2 python:
 
 init -2 python:
 
-    def _entry_key(entry):
+    def _wf_tl_entry_key(entry):
         """Return normalized site key from a shadow path entry (tuple or None)."""
         key = entry.get("ast_key") or entry.get("menu_site_key")
         return tuple(key) if isinstance(key, list) else key
@@ -521,11 +540,11 @@ init -2 python:
         """Return chosen_index from the first entry matching the current node, or None."""
         site_key = _tl_node_menu_site_key(node) if isinstance(node, dict) else None
         for entry in (shadow_path or []):
-            if site_key is not None and _entry_key(entry) == site_key:
+            if site_key is not None and _wf_tl_entry_key(entry) == site_key:
                 return entry.get("chosen_index")
         return None
 
-    def _tl_consume_shadow_path(shadow_path, node, chosen_index):
+    def _tl_consume_shadow_path(shadow_path, node, chosen_index, chosen_ast_index=None):
         """
         Consume shadow path entries up to and including the first entry matching node.
         Returns (new_path_or_none, diverged_orig_ci_or_none, match_mode_or_none).
@@ -539,19 +558,23 @@ init -2 python:
             return shadow_path, None, None
         site_key = _tl_node_menu_site_key(node) if isinstance(node, dict) else None
         for i, entry in enumerate(shadow_path):
-            if site_key is not None and _entry_key(entry) == site_key:
+            if site_key is not None and _wf_tl_entry_key(entry) == site_key:
                 orig_chosen = entry.get("chosen_index")
-                remaining   = shadow_path[i + 1:] or None
-                diverged    = orig_chosen if orig_chosen != chosen_index else None
+                orig_ast_index = entry.get("option_ast_index")
+                remaining = shadow_path[i + 1:] or None
+                if orig_ast_index is not None and chosen_ast_index is not None:
+                    diverged = orig_chosen if orig_ast_index != chosen_ast_index else None
+                else:
+                    diverged = orig_chosen if orig_chosen != chosen_index else None
                
-                _tl_log("TL shadow match: node={} via=ast_key site={} div={}".format(
+                _tl_log("Timeline shadow match: node={} via=ast_key site={} div={}".format(
                     node.get("index") if isinstance(node, dict) else "?",
                     site_key, diverged))
                 return remaining, diverged, "ast_key"
         
-        _tl_log("TL shadow no-match: node={} sp_first={}".format(
+        _tl_log("Timeline shadow no-match: node={} sp_first={}".format(
             node.get("index") if isinstance(node, dict) else "?",
-            _entry_key(shadow_path[0]) if shadow_path else None))
+            _wf_tl_entry_key(shadow_path[0]) if shadow_path else None))
         return shadow_path, None, None
 
 ## -----------------------------------------------------------------------------
@@ -568,17 +591,20 @@ init -2 python:
 ## IMPORTANTE: todos os dicionários de cache e snapshot devem ser dicts nativos do Python, NÃO
 ## RevertableDict. Nos blocos init python do Ren'Py, literais {} são convertidos
 ## em __renpy__dict__(), que cria RevertableDict — rastreado pelo sistema de
-## rollback e revertido durante o rollback. _TL_PLAIN_DICT evita essa conversão.
+## rollback e revertido durante o rollback. _WELLS_TL_PLAIN_DICT evita essa conversão.
 ## =============================================================================
 
 init -2 python:
 
-    import builtins as _tl_builtins
-    _TL_PLAIN_DICT = _tl_builtins.dict
+    try:
+        import __builtin__ as _tl_builtins
+    except ImportError:
+        import builtins as _tl_builtins
+    _WELLS_TL_PLAIN_DICT = _tl_builtins.dict
 
     def _tl_make_cache():
-        c = _TL_PLAIN_DICT()
-        c["menu"] = _TL_PLAIN_DICT()
+        c = _WELLS_TL_PLAIN_DICT()
+        c["menu"] = _WELLS_TL_PLAIN_DICT()
         return c
 
     def _tl_get_snapshot_cache():
@@ -608,8 +634,8 @@ init -2 python:
         try:
             ctx.info = _copy.deepcopy(ctx.info)
         except Exception as e:
-            _tl_log("TL snapshot: deepcopy info failed: {}".format(e))
-        snap = _TL_PLAIN_DICT()
+            _tl_log("Timeline snapshot: deepcopy info failed: {}".format(e))
+        snap = _WELLS_TL_PLAIN_DICT()
         snap["roots"]   = renpy.game.log.get_roots()
         snap["context"] = ctx
         # Ajusta ctx.current em arquivos .rpyc compilados nos quais o label é uma tupla.
@@ -628,16 +654,16 @@ init -2 python:
                         best_label = lname
                 if best_label:
                     ctx.current = best_label
-                    _tl_log("TL snapshot: patched current {} → {}".format(ctx_cur, best_label))
+                    _tl_log("Timeline snapshot: patched current {} → {}".format(ctx_cur, best_label))
                 else:
-                    _tl_log("TL snapshot: WARNING no enclosing label for {}".format(ctx_cur))
+                    _tl_log("Timeline snapshot: WARNING no enclosing label for {}".format(ctx_cur))
         return snap
 
     def _tl_cache_menu_snapshot(node_index, snap):
         """Write snap to cache["menu"][node_index]. Called after history append."""
         cache = _tl_get_snapshot_cache()
         cache["menu"][node_index] = snap
-        _tl_log("TL snapshot: cached idx={} cache_menu_total={}".format(
+        _tl_log("Timeline snapshot: cached idx={} cache_menu_total={}".format(
             node_index, len(cache["menu"])))
 
     def _tl_get_menu_snapshot(node_index):
@@ -649,10 +675,10 @@ init -2 python:
         old_cache = getattr(renpy.game.log, "_tl_snapshot_cache", None)
         if old_cache is not None:
             new_log._tl_snapshot_cache = old_cache
-            _tl_log("TL unfreeze: cache copiado; menus={}".format(
+            _tl_log("Timeline unfreeze: cache copiado; menus={}".format(
                 len(old_cache.get("menu", {}))))
         else:
-            _tl_log("TL unfreeze: no cache to copy (old_log had none)")
+            _tl_log("Timeline unfreeze: no cache to copy (old_log had none)")
 
     def _tl_unfreeze_from_snapshot(snap):
         """
@@ -672,7 +698,7 @@ init -2 python:
             import copy as _copy
             ctx = _copy.deepcopy(snap["context"])
         except Exception as e:
-            _tl_log("TL unfreeze: ctx deepcopy failed: {}".format(e))
+            _tl_log("Timeline unfreeze: ctx deepcopy failed: {}".format(e))
             ctx = snap["context"]
         ctx.interacting = False
 
@@ -698,7 +724,7 @@ init -2 python:
 
         _tl_transfer_snapshot_cache(new_log)
 
-        _tl_log("TL unfreeze: ctx={} roots_keys={}".format(
+        _tl_log("Timeline unfreeze: ctx={} roots_keys={}".format(
             getattr(ctx, "current", "?"), len(roots)))
 
         ## Nunca retorna — a execução é retomada pelo label _after_load..

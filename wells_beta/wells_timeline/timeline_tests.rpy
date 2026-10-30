@@ -144,6 +144,10 @@ init python:
             getattr(renpy.exports.menu, "_tl_wrapped", False))
         r.check(s, "store.menu wrapped",
             getattr(renpy.store.menu, "_tl_wrapped", False))
+        r.check(s, "exports.menu keeps original in closure",
+            callable(getattr(renpy.exports.menu, "_tl_original", None)))
+        r.check(s, "store.menu keeps original in closure",
+            callable(getattr(renpy.store.menu, "_tl_original", None)))
         # Encapsular duas vezes causaria um erro de encapsulamento duplicado.
         r.check(s, "exports.menu not double-wrapped",
             not getattr(getattr(renpy.exports.menu, "__wrapped__", None),
@@ -201,7 +205,7 @@ init python:
                 _tc["_test_key_"] == b"fake_png_data")
 
             # Remoção: simula o ciclo LRU usando um dicionário temporário.
-            original_max = TL_THUMB_CACHE_MAX
+            original_max = WELLS_TL_THUMB_CACHE_MAX
             test_cache = {}
             for i in range(original_max + 5):
                 test_cache[str(i)] = b"x"
@@ -292,6 +296,28 @@ init python:
                 r.check(s, "available options present", node["options"] == ["Available A", "Available C"])
                 r.check(s, "option count is 2",         len(node["options"]) == 2)
 
+        except Exception as e:
+            r.check(s, "no exception", False, str(e))
+
+
+    def _tl_test_structural_choice_indices(r):
+        """Original AST indices survive visible-option filtering and reordered items."""
+        s = "structural_choice_indices"
+        node = {"options": ["A", "B", "C"], "option_ast_indices": [0, 1, 2]}
+        actual_items = [
+            ("C", _TLFakeChoice(value=2)),
+            ("A", _TLFakeChoice(value=0)),
+        ]
+        try:
+            synced = _tl_sync_node_options(node, actual_items)
+            r.check(s, "visible labels synchronized", synced and node["options"] == ["C", "A"])
+            r.check(s, "structural indices preserved",
+                node["option_ast_indices"] == [2, 0])
+            r.check(s, "structural lookup resolves hidden-order choice",
+                _tl_choice_entry_for_ast_index(actual_items, 0) == actual_items[1])
+            rv = actual_items[0][1]()
+            r.check(s, "return value maps to current node option",
+                _tl_choice_index_from_return_value(actual_items, rv, node) == 0)
         except Exception as e:
             r.check(s, "no exception", False, str(e))
 
@@ -1234,6 +1260,7 @@ init python:
         _tl_test_thumb_cache(r)
         _tl_test_record_pipeline(r)
         _tl_test_locked_options(r)
+        _tl_test_structural_choice_indices(r)
         _tl_test_option_filtering(r)
         _tl_test_node_has_new(r)
         _tl_test_validate_history(r)

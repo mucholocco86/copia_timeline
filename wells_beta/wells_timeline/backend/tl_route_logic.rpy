@@ -5,13 +5,13 @@
 
 init -2 python:
 
-    _TL_ROUTE_HIGH_THRESHOLD = 5   ## acima desta quantidade de condições If, sempre exibe, mesmo se já consumido
+    _WELLS_TL_ROUTE_HIGH_THRESHOLD = 5   ## acima desta quantidade de condições If, sempre exibe, mesmo se já consumido
 
     ## Python 2 (Ren'Py 7) tem um tipo unicode separado; str do Python 3 cobre ambos.
     try:
-        _TL_SCALAR_TYPES = (bool, int, float, str, unicode)
+        _WELLS_TL_SCALAR_TYPES = (bool, int, float, str, unicode)
     except NameError:
-        _TL_SCALAR_TYPES = (bool, int, float, str)
+        _WELLS_TL_SCALAR_TYPES = (bool, int, float, str)
 
     def _tl_ri_collect_assigned(nodes, domain):
         """
@@ -85,24 +85,24 @@ init -2 python:
             code       = getattr(node, "code", None)
             bytecode   = getattr(code, "bytecode", None)
             if store_attr != "store":
-                if TL_DEBUG_ROUTE:
-                    _tl_log("TL default skip {}: store={}".format(var_name, store_attr))
+                if WELLS_TL_DEBUG_ROUTE:
+                    _tl_log("Timeline default skip {}: store={}".format(var_name, store_attr))
                 continue
             if not var_name or var_name.startswith("_"):
                 continue
             if bytecode is None:
-                if TL_DEBUG_ROUTE:
-                    _tl_log("TL default skip {}: bytecode=None code={}".format(var_name, code))
+                if WELLS_TL_DEBUG_ROUTE:
+                    _tl_log("Timeline default skip {}: bytecode=None code={}".format(var_name, code))
                 continue
             try:
                 default_val = renpy.python.py_eval_bytecode(bytecode)
                 if isinstance(default_val, (bool, int, float, str)):
                     defaults[var_name] = default_val
-                elif TL_DEBUG_ROUTE:
-                    _tl_log("TL default skip {}: non-scalar type={}".format(var_name, type(default_val).__name__))
+                elif WELLS_TL_DEBUG_ROUTE:
+                    _tl_log("Timeline default skip {}: non-scalar type={}".format(var_name, type(default_val).__name__))
             except Exception as e:
-                if TL_DEBUG_ROUTE:
-                    _tl_log("TL default skip {}: eval error {}".format(var_name, e))
+                if WELLS_TL_DEBUG_ROUTE:
+                    _tl_log("Timeline default skip {}: eval error {}".format(var_name, e))
         _tl_log("Timeline: varredura de padrões: encontrados {} nós Default, capturados {}".format(found, len(defaults)))
         route_vars.update(defaults.keys())
         for var_name, default_val in defaults.items():
@@ -227,8 +227,8 @@ init -2 python:
         ## (declaradas com `default`, lidas apenas em condições e nunca atribuídas com $)
         var_name_set = set(var_names)
         extra = [v for v in sorted(highlighted) if v not in var_name_set and v in var_defaults]
-        if TL_DEBUG_ROUTE and extra:
-            _tl_log("TL chips: highlighted vars added from defaults only: {}".format(extra))
+        if WELLS_TL_DEBUG_ROUTE and extra:
+            _tl_log("Timeline chips: highlighted vars added from defaults only: {}".format(extra))
         all_names = list(var_names) + extra
 
         chips = []
@@ -236,7 +236,7 @@ init -2 python:
             val = getattr(store, name, None)
             if val is None:
                 continue
-            if not isinstance(val, _TL_SCALAR_TYPES):
+            if not isinstance(val, _WELLS_TL_SCALAR_TYPES):
                 continue
             if name in var_defaults and val == var_defaults[name] and name not in highlighted:
                 continue   ## ainda está no valor padrão declarado; a história não a alterou
@@ -247,8 +247,8 @@ init -2 python:
             -(if_count.get(c[0], 0)),
             c[0],
         ))
-        if TL_DEBUG_ROUTE:
-            _tl_log("TL route chips: {}/{} vars shown (ghost={} hl={})".format(
+        if WELLS_TL_DEBUG_ROUTE:
+            _tl_log("Timeline route chips: {}/{} vars shown (ghost={} hl={})".format(
                 len(chips), len(var_names), len(ghost_vars), len(highlighted)))
         return chips
 
@@ -300,8 +300,8 @@ init -2 python:
         if parts:
             lines = [" · ".join(parts[i:i+3]) for i in range(0, len(parts), 3)]
             msg = "\n".join(lines)
-            _tl_log("TL var notify: {}".format(msg))
-            renpy.show_screen("_tl_notify", message=msg)
+            _tl_log("Timeline var notify: {}".format(msg))
+            renpy.show_screen("wells_tl_notify", message=msg)
 
     def _tl_flush_menu_snap():
         """
@@ -339,8 +339,8 @@ init -2 python:
         if parts:
             lines = [" · ".join(parts[i:i+3]) for i in range(0, len(parts), 3)]
             msg = "\n".join(lines)
-            _tl_log("TL menu_snap notify: {}".format(msg))
-            renpy.show_screen("_tl_notify", message=msg)
+            _tl_log("Timeline menu_snap notify: {}".format(msg))
+            renpy.show_screen("wells_tl_notify", message=msg)
 
 ## ── Python.execute patch — route var change detection ────────────────────
 

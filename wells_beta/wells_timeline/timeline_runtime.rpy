@@ -32,7 +32,7 @@ init -1 python:
                     node_type = type(node_obj).__name__
                     ast_key   = (node_obj.filename, node_obj.linenumber)
         except Exception as e:
-            _tl_log("TL location lookup failed: {}".format(e))
+            _tl_log("Timeline location lookup failed: {}".format(e))
         return ast_key, location, node_type
 
     def _tl_resolve_img_name(ast_key, location):
@@ -55,37 +55,152 @@ init -1 python:
                 img_name = img_cache[ast_site_key]
             elif loc_key and loc_key in img_cache:
                 img_name = img_cache[loc_key]
-        if TL_DEBUG_MENU:
-            _tl_log("TL img_name: ast_key={} img_name={}".format(ast_key, img_name))
+        if WELLS_TL_DEBUG_MENU:
+            _tl_log("Timeline img_name: ast_key={} img_name={}".format(ast_key, img_name))
         return img_name
 
-    def _tl_capture_thumb(node, ast_key):
+    def _tl_capture_thumb(node, ast_key, force=False):
         """
         Capture or restore a screenshot thumbnail for the given menu node.
-        Uses the runtime thumb cache; only captures when not replaying and not skipping.
-        Sets node["thumb_bytes"] directly when the cache is unavailable.
+        Defers capture while a nested menu context is active, so a save/load
+        screen cannot be cached as the scene thumbnail.
         """
         need_frozen_thumb = bool(node["img_name"] and _tl_img_name_is_movie(node["img_name"]))
-        if node["img_name"] and not need_frozen_thumb:
-            return
+        ## Captura forçada ocorre com a choice visível e inclui a composição de tela atual.
+        need_runtime_thumb = bool(force) or (not node["img_name"] or need_frozen_thumb)
+        if not force and node["img_name"] and not need_frozen_thumb:
+            ## Sem captura ativa de choice, dispensa a captura quando há um arquivo direto.
+            ## Com force=True, preserva a composição completa mostrada durante a escolha.
+            need_runtime_thumb = not bool(_tl_resolve_asset_file(node["img_name"]))
+        if not need_runtime_thumb:
+            return False
+        contexts = getattr(renpy.game, "contexts", None)
+        if not force and contexts is not None and len(contexts) > 1:
+            node["_tl_thumb_capture_pending"] = True
+            _tl_log("Timeline thumb: captura adiada em contexto de menu aninhado; node={} ast={}".format(
+                node.get("index"), ast_key))
+            return False
         cache_key    = str(ast_key) if ast_key else None
         thumb_cache  = getattr(renpy.game, "_tl_thumb_cache", {})
         cached_thumb = thumb_cache.get(cache_key) if cache_key else None
-        if not persistent._tl_replaying and not cached_thumb and not config.skipping:
+        captured = False
+        if not persistent._tl_replaying and (force or not cached_thumb) and not config.skipping:
             thumb = _tl_capture_thumbnail()
             if thumb:
                 if cache_key:
                     try:
                         thumb_cache[cache_key] = thumb
-                        while len(thumb_cache) > TL_THUMB_CACHE_MAX:
+                        while len(thumb_cache) > WELLS_TL_THUMB_CACHE_MAX:
                             thumb_cache.pop(next(iter(thumb_cache)))
                     except Exception as e:
-                        _tl_log("TL thumb cache write failed: {}".format(e))
+                        _tl_log("Timeline thumb cache write failed: {}".format(e))
                         node["thumb_bytes"] = thumb
                 else:
                     node["thumb_bytes"] = thumb
-        if need_frozen_thumb and TL_DEBUG_MENU:
-            _tl_log("TL movie thumb fallback: ast_key={} img_name={}".format(ast_key, node["img_name"]))
+                captured = True
+        if need_frozen_thumb and WELLS_TL_DEBUG_MENU:
+            _tl_log("Timeline movie thumb fallback: ast_key={} img_name={}".format(ast_key, node["img_name"]))
+        return captured
+
+    def _tl_begin_choice_thumb_capture(node):
+        """Schedule a thumbnail capture while Ren'Py is displaying this choice."""
+        try:
+            renpy.game._tl_pending_choice_thumb = {
+                "node": node,
+                "ticks": 0,
+            }
+        except Exception as e:
+            _tl_log("Timeline thumb: não foi possível agendar captura da choice: {}".format(e))
+
+    def _tl_end_choice_thumb_capture(node):
+        """Discard a pending capture after its menu interaction ends."""
+        try:
+            pending = getattr(renpy.game, "_tl_pending_choice_thumb", None)
+            if pending and (node is None or pending.get("node") is node):
+                renpy.game._tl_pending_choice_thumb = None
+        except Exception:
+            pass
+
+    def _tl_capture_visible_choice_thumb():
+        """Capture only after the game choice screen is active and rendered."""
+        try:
+            pending = getattr(renpy.game, "_tl_pending_choice_thumb", None)
+            if not pending:
+                return
+
+            ## Não capture menus auxiliares abertos em contexto aninhado, como save/load.
+            contexts = getattr(renpy.game, "contexts", None)
+            if contexts is not None and len(contexts) > 1:
+                return
+
+            try:
+                choice_screen = renpy.display.screen.get_screen("choice")
+            except Exception:
+                choice_screen = None
+            if choice_screen is None:
+                return
+
+            ## Aguarda mais um ciclo periódico para a choice já ter sido desenhada.
+            pending["ticks"] += 1
+            if pending["ticks"] < 2:
+                return
+
+            node = pending.get("node")
+            if node is not None:
+                captured = _tl_capture_thumb(node, node.get("ast_key"), force=True)
+                node["_tl_thumb_capture_pending"] = False
+                if captured:
+                    _tl_log("Timeline thumb: captura feita com a choice visível; node={} ast={}".format(
+                        node.get("index"), node.get("ast_key")))
+                else:
+                    ## Remove uma captura anterior possivelmente incorreta; não a reaproveita.
+                    key = str(node["ast_key"]) if node.get("ast_key") else None
+                    cache = getattr(renpy.game, "_tl_thumb_cache", {})
+                    if key:
+                        cache.pop(key, None)
+                    _tl_log("Timeline thumb: captura da choice indisponível; node={} ast={}".format(
+                        node.get("index"), node.get("ast_key")))
+            renpy.game._tl_pending_choice_thumb = None
+        except Exception as e:
+            _tl_log("Timeline thumb: falha ao capturar choice visível: {}".format(e))
+            try:
+                renpy.game._tl_pending_choice_thumb = None
+            except Exception:
+                pass
+
+    def _tl_register_choice_thumb_callback():
+        """Register without replacing callbacks already installed by the game."""
+        try:
+            renpy.game._tl_pending_choice_thumb = None
+        except Exception:
+            pass
+
+        _tl_capture_visible_choice_thumb._wells_tl_choice_thumb_callback = True
+        callbacks = getattr(config, "periodic_callbacks", None)
+        if isinstance(callbacks, list):
+            ## Shift+R redefines the function object. Remove its old registration first.
+            callbacks[:] = [
+                callback for callback in callbacks
+                if not getattr(callback, "_wells_tl_choice_thumb_callback", False)
+            ]
+            callbacks.append(_tl_capture_visible_choice_thumb)
+            return
+
+        previous = getattr(config, "periodic_callback", None)
+        if getattr(previous, "_wells_tl_choice_thumb_wrapper", False):
+            previous = getattr(previous, "_wells_tl_previous_callback", None)
+
+        def _tl_legacy_periodic_callback():
+            if previous:
+                previous()
+            _tl_capture_visible_choice_thumb()
+
+        _tl_legacy_periodic_callback._wells_tl_choice_thumb_wrapper = True
+        _tl_legacy_periodic_callback._wells_tl_previous_callback = previous
+        config.periodic_callback = _tl_legacy_periodic_callback
+
+    _tl_register_choice_thumb_callback()
+
 
     def _tl_record_before(items):
         if not hasattr(store, "_tl_history"):
@@ -102,7 +217,7 @@ init -1 python:
                 store._tl_pending_var_changes = {}
                 store._tl_menu_var_snap = None
         except Exception as e:
-            _tl_log("TL var flush error: {}".format(e))
+            _tl_log("Timeline var flush error: {}".format(e))
 
         ## Os nós de ramos futuros acumulados desde o último menu foram resolvidos — limpa-os.
         store._tl_ghost_nodes          = []
@@ -118,15 +233,15 @@ init -1 python:
         if not persistent._tl_replaying:
             try:
                 snap = _tl_capture_snapshot()
-                _tl_log("TL snapshot: idx={} ctx={} roots_keys={}".format(
+                _tl_log("Timeline snapshot: idx={} ctx={} roots_keys={}".format(
                     _tl_node_count,
                     getattr(snap["context"], "current", "?"),
                     len(snap["roots"])
                 ))
             except Exception as e:
-                _tl_log("TL snapshot ERROR idx={}: {}".format(_tl_node_count, e))
+                _tl_log("Timeline snapshot ERROR idx={}: {}".format(_tl_node_count, e))
 
-        prompt, valid_items = _tl_parse_menu_items(items)
+        prompt, valid_items, option_ast_indices = _tl_parse_menu_items(items)
         if not valid_items:
             return None
 
@@ -153,32 +268,37 @@ init -1 python:
             if renpy.game.log and renpy.game.log.current:
                 rollback_id = renpy.game.log.current.identifier
         except Exception as e:
-            _tl_log("TL rollback_id failed: {}".format(e))
+            _tl_log("Timeline rollback_id failed: {}".format(e))
 
         node = {
             "index"             : _tl_node_count,
             "prompt"            : prompt,
             "options"           : valid_items,
+            "option_ast_indices": option_ast_indices,
             "chosen_index"      : None,
+            "chosen_ast_index"  : None,
+            "_tl_options_pending_sync": True,
             "thumb_bytes"       : None,
             "ast_key"           : ast_key,
             "_location"         : location,
             "_rollback_id"      : rollback_id,
         }
         menu_site = _tl_node_menu_site_key(node)
-        _tl_log("TL menu enter: node={} ast={} site={} opts={} current_type={}".format(
+        _tl_log("Timeline menu enter: node={} ast={} site={} opts={} current_type={}".format(
             node["index"], node["ast_key"], menu_site,
             len(node["options"]), node_type))
         if node_type != "Menu":
-            _tl_log("TL menu current-node mismatch: node={} ast={} current_type={} loc={}".format(
+            _tl_log("Timeline menu current-node mismatch: node={} ast={} current_type={} loc={}".format(
                 node["index"], node["ast_key"], node_type, node.get("_location")))
         if (node["ast_key"] is not None and menu_site is not None
                 and tuple(node["ast_key"]) != tuple(menu_site)):
-            _tl_log("TL menu ast/site mismatch: node={} ast={} site={} loc={}".format(
+            _tl_log("Timeline menu ast/site mismatch: node={} ast={} site={} loc={}".format(
                 node["index"], node["ast_key"], menu_site, node.get("_location")))
 
         node["img_name"] = _tl_resolve_img_name(ast_key, location)
-        _tl_capture_thumb(node, ast_key)
+        ## A captura é solicitada agora, mas só será feita quando a tela da choice
+        ## estiver ativa e já tiver sido desenhada pelo Ren'Py.
+        node["_tl_thumb_capture_pending"] = True
 
         _tl_history = _tl_history + [node]
         if snap is not None:
@@ -189,7 +309,7 @@ init -1 python:
         try:
             store._tl_menu_var_snap = _tl_snapshot_route_vars()
         except Exception as e:
-            _tl_log("TL menu var snap error: {}".format(e))
+            _tl_log("Timeline menu var snap error: {}".format(e))
 
         return node
 
@@ -209,13 +329,14 @@ init -1 python:
                     break
 
         if chosen_index is None or chosen_index < 0 or chosen_index >= len(node["options"]):
-            _tl_log("TL NO MATCH: chosen_index={} chosen_label={}".format(
+            _tl_log("Timeline NO MATCH: chosen_index={} chosen_label={}".format(
                 repr(chosen_index), repr(chosen_label)))
             return
 
         node["chosen_index"] = chosen_index
+        node["chosen_ast_index"] = _tl_node_option_ast_index(node, chosen_index)
         _tl_context = _tl_context + [(node["prompt"], chosen_index)]
-        _tl_log("TL choice: node={} idx={} label={} source={}".format(
+        _tl_log("Timeline choice: node={} idx={} label={} source={}".format(
             node.get("index"), chosen_index,
             repr(node["options"][chosen_index]) if chosen_index < len(node["options"]) else None,
             choice_source))
@@ -228,25 +349,62 @@ init -1 python:
     if not getattr(renpy.exports.menu, "_tl_wrapped", False):
         _tl_original_exports_menu = renpy.exports.menu
 
-        def _tl_exports_wrapper(items, set=None, args=None, kwargs=None, item_arguments=None):
-            _tl_pending[0] = _tl_record_before(items)
-            return _tl_original_exports_menu(items, set, args, kwargs, item_arguments)
+        def _tl_make_exports_wrapper(original_menu):
+            ## A closure retains the original through Shift+R even if the store is reinitialized.
+            def _tl_exports_wrapper(items, *args, **kwargs):
+                _tl_pending[0] = _tl_record_before(items)
+                return original_menu(items, *args, **kwargs)
 
-        _tl_exports_wrapper._tl_wrapped = True
-        renpy.exports.menu = _tl_exports_wrapper
+            _tl_exports_wrapper._tl_wrapped = True
+            _tl_exports_wrapper._tl_original = original_menu
+            _tl_exports_wrapper.__wrapped__ = original_menu
+            return _tl_exports_wrapper
 
-    def _tl_replay_pick(n_index, items, path, target):
+        renpy.exports.menu = _tl_make_exports_wrapper(_tl_original_exports_menu)
+
+    def _tl_abort_replay(reason):
+        """Stop automatic replay if the recorded structural choice is no longer available."""
+        persistent._tl_replaying = False
+        persistent._tl_replay_path = None
+        persistent._tl_replay_target = None
+        store._tl_shadow_path = None
+        config.skipping = None
+        renpy.save_persistent()
+        _tl_log("Timeline replay canceled safely: {}".format(reason))
+
+    def _tl_replay_pick(n_index, items, path, target, node=None):
         """
-        During replay, return (chosen_index, choice_value) for the current node, or None
-        if this node is not on the replay path. Does not modify persistent state.
+        Resolve recorded choices by their original Menu.items index.
+        Older saved history without that index falls back to the stored visible position.
         """
         if target and n_index == target["node_index"]:
-            opt_index    = target["option_index"]
+            opt_index = target["option_index"]
+            ast_index = target.get("option_ast_index")
+            if ast_index is None:
+                ast_index = _tl_node_option_ast_index(node, opt_index)
+            if ast_index is not None:
+                choice_entry = _tl_choice_entry_for_ast_index(items, ast_index)
+                if choice_entry is None:
+                    _tl_abort_replay("opção estrutural {} ausente no menu {}".format(ast_index, n_index))
+                    return None
+                history_index = _tl_node_option_index_for_ast(node, ast_index, opt_index)
+                return history_index, choice_entry[1]
             choice_entry = _tl_choice_entry_for_index(items, opt_index)
             return (opt_index, choice_entry[1]) if choice_entry else None
+
         for path_entry in (path or []):
             if path_entry["index"] == n_index:
                 chosen_index = path_entry["chosen_index"]
+                ast_index = path_entry.get("option_ast_index")
+                if ast_index is None:
+                    ast_index = _tl_node_option_ast_index(node, chosen_index)
+                if ast_index is not None:
+                    choice_entry = _tl_choice_entry_for_ast_index(items, ast_index)
+                    if choice_entry is None:
+                        _tl_abort_replay("opção estrutural {} ausente no menu {}".format(ast_index, n_index))
+                        return None
+                    history_index = _tl_node_option_index_for_ast(node, ast_index, chosen_index)
+                    return history_index, choice_entry[1]
                 choice_entry = (_tl_choice_entry_for_index(items, chosen_index)
                                 if chosen_index is not None else None)
                 return (chosen_index, choice_entry[1]) if choice_entry else None
@@ -255,49 +413,49 @@ init -1 python:
     if not getattr(renpy.store.menu, "_tl_wrapped", False):
         _tl_original_store_menu = renpy.store.menu
 
-        def _tl_store_wrapper(items):
-            ## ── Interceptação da repetição ───────────────────────────────────────────
+    def _tl_make_store_wrapper(original_store_menu):
+        def _tl_store_wrapper(items, *args, **kwargs):
+            node = _tl_pending[0]
+            if node is not None and node.pop("_tl_options_pending_sync", False):
+                _tl_sync_node_options(node, items)
+
+            ## Intercepta a retomada automática de escolhas.
             if persistent._tl_replaying:
                 node = _tl_pending[0]
                 if node is not None:
-                    target  = persistent._tl_replay_target
-                    path    = persistent._tl_replay_path or []
+                    target = persistent._tl_replay_target
+                    path = persistent._tl_replay_path or []
                     n_index = node["index"]
 
                     if target and n_index == target["node_index"]:
-                        _tl_log("TL replay: arrived at node={} option={}".format(
+                        _tl_log("Timeline replay: chegou ao nó={} opção={}".format(
                             n_index, target["option_index"]))
-                        persistent._tl_replaying     = False
-                        persistent._tl_replay_path   = None
+                        persistent._tl_replaying = False
+                        persistent._tl_replay_path = None
                         persistent._tl_replay_target = None
-                        ## Sempre desativa o skip ao terminar a repetição — shadow_path permanece definido
-                        ## para o botão "Reproduzir automaticamente daqui?", mas o jogador precisa
-                        ## ativá-lo manualmente. A repetição auxiliar não é ativada automaticamente.
                         config.skipping = None
                         renpy.save_persistent()
 
                         _tl_populate_choice_returns(node, items)
-                        pick = _tl_replay_pick(n_index, items, path, target)
+                        pick = _tl_replay_pick(n_index, items, path, target, node)
                         if pick is not None:
                             opt_index, value = pick
                             _tl_pending[0] = None
-                            ## Marca a divergência se o salto escolher uma opção diferente.
-                            ## node["chosen_index"] pode ser None se o save carregado for de
-                            ## antes da criação deste nó; por isso, lê a escolha original de
-                            ## persistent._tl_replay_path, capturado antes do carregamento.
-                            orig_chosen = next(
-                                (e["chosen_index"] for e in path if e["index"] == n_index), None)
+                            orig_entry = next(
+                                (e for e in path if e["index"] == n_index), None)
+                            orig_chosen = orig_entry.get("chosen_index") if orig_entry else None
+                            orig_ast_index = orig_entry.get("option_ast_index") if orig_entry else None
                             _tl_record_after(node, chosen_index=opt_index)
-                            if orig_chosen is not None and opt_index != orig_chosen:
+                            if orig_ast_index is not None:
+                                diverged = orig_ast_index != node.get("chosen_ast_index")
+                            else:
+                                diverged = orig_chosen is not None and opt_index != orig_chosen
+                            if diverged:
                                 node["_shadow_orig_chosen"] = orig_chosen
-                            ## Chama value() em vez de ler .value diretamente para que
-                            ## ChoiceReturn.__call__ registre esta escolha em
-                            ## persistent._chosen — necessário para que get_chosen()
-                            ## retorne True e os indicadores desapareçam após a repetição.
                             return value() if hasattr(value, "value") else value
 
                     else:
-                        pick = _tl_replay_pick(n_index, items, path, target)
+                        pick = _tl_replay_pick(n_index, items, path, target, node)
                         if pick is not None:
                             chosen_index, value = pick
                             _tl_populate_choice_returns(node, items)
@@ -305,51 +463,61 @@ init -1 python:
                             _tl_record_after(node, chosen_index=chosen_index)
                             return value() if hasattr(value, "value") else value
 
-            ## ── Fluxo normal ───────────────────────────────────────────────────
+            ## Fluxo normal.
             node = _tl_pending[0]
             if node is not None:
                 _tl_populate_choice_returns(node, items)
 
-            rv = _tl_original_store_menu(items)
-
+            ## O callback periódico captura a imagem durante a tela real da choice.
+            ## O pedido fica fora do store do jogo, para não entrar nos save games.
             node = _tl_pending[0]
-            if node is not None and rv is not None:
-                chosen_index = _tl_choice_index_from_return_value(items, rv)
+            if node is not None and node.get("_tl_thumb_capture_pending"):
+                _tl_begin_choice_thumb_capture(node)
 
+            rv = original_store_menu(items, *args, **kwargs)
+
+            ## Se a escolha terminou antes da captura, descarta o pedido. O cache da cena
+            ## continua disponível como alternativa, sem reaproveitar uma tela antiga.
+            node = _tl_pending[0]
+            _tl_end_choice_thumb_capture(node)
+            if node is not None and rv is not None:
+                chosen_index = _tl_choice_index_from_return_value(items, rv, node)
                 if chosen_index is not None:
                     _tl_record_after(node, chosen_index=chosen_index)
                 else:
-                    _tl_log("TL choice resolve failed: node={} valid_opts={} rv_type={}".format(
+                    _tl_log("Timeline escolha não resolvida: nó={} opções={} tipo={}".format(
                         node.get("index"), len(_tl_valid_choice_entries(items)), type(rv).__name__))
 
-                ## Auxílio à repetição: consome entradas do caminho auxiliar ao alcançar um menu correspondente.
-                ## Descarta todas as entradas anteriores à correspondência e também a própria correspondência.
-                ## Se o jogador escolheu outra opção, marca _shadow_orig_chosen no nó
-                ## para que o indicador de divergência continue visível depois que a entrada for removida.
                 if store._tl_shadow_path and node is not None:
                     try:
                         remaining, diverged_ci, _ = _tl_consume_shadow_path(
-                            store._tl_shadow_path, node, node.get("chosen_index"))
-                        if remaining != store._tl_shadow_path:  ## correspondência encontrada — atualiza o caminho
+                            store._tl_shadow_path, node, node.get("chosen_index"),
+                            node.get("chosen_ast_index"))
+                        if remaining != store._tl_shadow_path:
                             if diverged_ci is not None:
                                 node["_shadow_orig_chosen"] = diverged_ci
                             store._tl_shadow_path = remaining
                     except Exception as e:
-                        _tl_log("TL shadow ERROR: node={} err={}".format(node.get("index"), e))
+                        _tl_log("Timeline shadow ERRO: nó={} erro={}".format(node.get("index"), e))
 
                 _tl_pending[0] = None
-
             return rv
 
         _tl_store_wrapper._tl_wrapped = True
-        renpy.store.menu = _tl_store_wrapper
+        _tl_store_wrapper._tl_original = original_store_menu
+        _tl_store_wrapper.__wrapped__ = original_store_menu
+        return _tl_store_wrapper
+
+
+    if not getattr(renpy.store.menu, "_tl_wrapped", False):
+        renpy.store.menu = _tl_make_store_wrapper(renpy.store.menu)
 
 
 init 0 python:
     try:
         _tl_build_ast_map()
     except Exception as e:
-        _tl_log("TL AST error: {}".format(e))
+        _tl_log("Timeline AST error: {}".format(e))
         store._tl_ast_ready = True
 
 
@@ -359,7 +527,7 @@ init python:
             _tl_clear_replay_state()
             _tl_save_no_screenshot("wf_start")
         except Exception as e:
-            _tl_log("TL ERROR initial save failed: {}".format(e))
+            _tl_log("Timeline ERROR initial save failed: {}".format(e))
 
     def _tl_on_load():
         _tl_init_snapshot_cache()
@@ -375,19 +543,19 @@ init python:
                 for scr in renpy.config.overlay_screens:
                     if renpy.display.screen.get_screen(scr) is not None:
                         renpy.display.screen.hide_screen(scr)
-                _tl_log("TL on_load: overlay screens hidden after snapshot jump")
+                _tl_log("Timeline on_load: overlay screens hidden after snapshot jump")
             except Exception as e:
-                _tl_log("TL on_load: overlay hide failed: {}".format(e))
+                _tl_log("Timeline on_load: overlay hide failed: {}".format(e))
 
         if persistent._tl_replaying and persistent._tl_replay_target is None:
-            _tl_log("TL stale replay state cleared on load")
+            _tl_log("Timeline stale replay state cleared on load")
             _tl_clear_replay_state()
         elif not persistent._tl_replaying and persistent._tl_replay_path:
             ## Descarta caminhos auxiliares de capítulo gravados por versões antigas.
-            _tl_log("TL legacy chapter replay state cleared on load")
+            _tl_log("Timeline legacy chapter replay state cleared on load")
             _tl_clear_replay_state()
         elif persistent._tl_replaying:
-            _tl_log("TL on_load: path={} target={} replay_path_len={}".format(
+            _tl_log("Timeline on_load: path={} target={} replay_path_len={}".format(
                 "synthetic" if is_synthetic else "pre-save",
                 persistent._tl_replay_target,
                 len(persistent._tl_replay_path or [])
@@ -400,7 +568,7 @@ init python:
             ## Salto concluído (destino alcançado), mas o jogador salvou e carregou antes
             ## de cancelar — o slot de recuperação ficou obsoleto. Limpa-o para que o Timeline
             ## não exiba um botão de cancelamento para um salto já concluído.
-            _tl_log("TL on_load: stale recovery slot cleared (completed jump)")
+            _tl_log("Timeline on_load: stale recovery slot cleared (completed jump)")
             _tl_clear_replay_state()
         
         ## Reconstrói o caminho auxiliar após um salto para uma escolha.
@@ -410,7 +578,7 @@ init python:
             target_idx = persistent._tl_replay_target["node_index"]
             shadow = [e for e in persistent._tl_replay_path if e.get("index", -1) > target_idx]
             store._tl_shadow_path = shadow or None
-            _tl_log("TL on_load: shadow_path set count={}".format(
+            _tl_log("Timeline on_load: shadow_path set count={}".format(
                 len(store._tl_shadow_path) if isinstance(store._tl_shadow_path, list) else store._tl_shadow_path))
         
         ## Cria wf_start se não existir um save inicial atual nem legado.
@@ -418,7 +586,7 @@ init python:
             try:
                 _tl_save_no_screenshot("wf_start")
             except Exception as e:
-                _tl_log("TL ERROR start save failed on load: {}".format(e))
+                _tl_log("Timeline ERROR start save failed on load: {}".format(e))
         ## Os nós de ramos futuros são temporários — sempre os reinicia ao carregar para limpar qualquer
         ## estado obsoleto (inclusive saves _TlNoRollbackList antigos de sessões anteriores).
         store._tl_ghost_nodes    = []
@@ -441,7 +609,26 @@ init python:
             store._tl_pending_var_changes = {}
 
     config.start_callbacks.append(_tl_on_game_start)
-    config.after_load_callbacks.append(_tl_on_load)
+    try:
+        config.after_load_callbacks.append(_tl_on_load)
+    except Exception:
+        ## Ren'Py 6.99 não fornece after_load_callbacks. O label_callback é a
+        ## alternativa disponível; _after_load é executado após restaurar um save.
+        ## O marcador impede empilhar wrappers em recargas Shift+R.
+        if not getattr(config.label_callback, "_wells_tl_after_load_hook", False):
+            _tl_previous_label_callback = config.label_callback
+
+            def _tl_compat_label_callback(label, abnormal):
+                if _tl_previous_label_callback is not None:
+                    _tl_previous_label_callback(label, abnormal)
+                if label == "_after_load":
+                    _tl_on_load()
+                    validator = getattr(renpy.store, "_tl_validate_on_load", None)
+                    if validator is not None:
+                        validator()
+
+            _tl_compat_label_callback._wells_tl_after_load_hook = True
+            config.label_callback = _tl_compat_label_callback
     config.interact_callbacks.append(_tl_interact_callback)
 
 ## -----------------------------------------------------------------------------
@@ -455,7 +642,7 @@ init python:
 
 init -2 python:
 
-    import os, uuid, time as _tl_time, json as _tl_json
+    import os, time as _tl_time, json as _tl_json
     import hashlib as _tl_hashlib
     try:
         import __builtin__ as _tl_builtins
@@ -465,8 +652,8 @@ init -2 python:
     _tl_builtin_id = _tl_builtins.id
 
     ## Armazena as funções nativas antes que personagens do jogo possam sobrescrevê-las.
-    _TL_MIN = min
-    _TL_MAX = max
+    _WELLS_TL_MIN = min
+    _WELLS_TL_MAX = max
 
     def _tl_log(msg):
         try:
@@ -480,15 +667,15 @@ init -2 python:
             pass
 
     ## Dimensões das miniaturas
-    TL_THUMB_WIDTH  = 320
-    TL_THUMB_HEIGHT = 180
+    WELLS_TL_THUMB_WIDTH  = 320
+    WELLS_TL_THUMB_HEIGHT = 180
 
-    TL_THUMB_CACHE_MAX  = 500  ## limite de miniaturas (~25 MB com cerca de 50 KB por miniatura)
-    TL_DEBUG_GHOST      = False   ## detalhes da síntese de ramos futuros (execução If, agrupamento, imagens dos ramos, resolução de imagens)
-    TL_DEBUG_SEEN       = False   ## detalhes da resolução do estado visto (opt_seen, peek_seen)
-    TL_DEBUG_ROUTE      = False   ## detalhes do rastreador de rotas (diferenças de variáveis por bloco Python e busca por valores padrão)
-    TL_DEBUG_MENU       = False   ## detalhes do fluxo por menu (entrada no menu, img_name, consumo do caminho auxiliar)
-    TL_DEBUG_ASSET      = False   ## detalhes do cache de miniaturas (cache encontrado/gerado e atualizações do mapa de cenas)
+    WELLS_TL_THUMB_CACHE_MAX  = 500  ## limite de miniaturas (~25 MB com cerca de 50 KB por miniatura)
+    WELLS_TL_DEBUG_GHOST      = False   ## detalhes da síntese de ramos futuros (execução If, agrupamento, imagens dos ramos, resolução de imagens)
+    WELLS_TL_DEBUG_SEEN       = False   ## detalhes da resolução do estado visto (opt_seen, peek_seen)
+    WELLS_TL_DEBUG_ROUTE      = False   ## detalhes do rastreador de rotas (diferenças de variáveis por bloco Python e busca por valores padrão)
+    WELLS_TL_DEBUG_MENU       = False   ## detalhes do fluxo por menu (entrada no menu, img_name, consumo do caminho auxiliar)
+    WELLS_TL_DEBUG_ASSET      = False   ## detalhes do cache de miniaturas (cache encontrado/gerado e atualizações do mapa de cenas)
 
     def _tl_runtime_cache_store():
         """
@@ -524,12 +711,6 @@ init -2 python:
     ## -------------------------------------------------------------------------
     ## Constantes de tamanho de fonte
     ## -------------------------------------------------------------------------
-    TL_SIZE_BODY     = 21   ## todo o texto comum — opções, labels e botões
-    TL_SIZE_TITLE    = 38   ## cabeçalho "TIMELINE"
-    TL_SIZE_DOT      = 14   ## ● pontos indicadores
-    TL_SIZE_BADGE    = 12   ## rótulos pequenos
-    TL_SIZE_HEADER   = 28   ## cabeçalho da janela modal
-    TL_SIZE_SUBTITLE = 17   ## linhas de informações secundárias (alterações de variáveis e condições)
 
     def _tl_load_thumb_dict(path):
         """
@@ -540,20 +721,20 @@ init -2 python:
         from renpy.compat.pickle import loads
         try:
             with gzip.open(path, "rb") as f:
-                thumb_data = loads(f.read())
+                _wells_tl_thumb_data = loads(f.read())
             _tl_log("Timeline: miniaturas carregadas (gzip): miniaturas={} recursos={}".format(
-                len(thumb_data.get("thumb", {})), len(thumb_data.get("asset_thumb", {}))))
-            return thumb_data
+                len(_wells_tl_thumb_data.get("thumb", {})), len(_wells_tl_thumb_data.get("asset_thumb", {}))))
+            return _wells_tl_thumb_data
         except Exception as err:
-            _tl_log("TL thumbs gzip load error: {} — trying raw".format(err))
+            _tl_log("Timeline thumbs gzip load error: {} — trying raw".format(err))
         try:
             with open(path, "rb") as f:
-                thumb_data = loads(f.read())
-            _tl_log("TL thumbs loaded (raw): thumb={} asset={}".format(
-                len(thumb_data.get("thumb", {})), len(thumb_data.get("asset_thumb", {}))))
-            return thumb_data
+                _wells_tl_thumb_data = loads(f.read())
+            _tl_log("Timeline thumbs loaded (raw): thumb={} asset={}".format(
+                len(_wells_tl_thumb_data.get("thumb", {})), len(_wells_tl_thumb_data.get("asset_thumb", {}))))
+            return _wells_tl_thumb_data
         except Exception as err:
-            _tl_log("TL thumbs raw load error: {}".format(err))
+            _tl_log("Timeline thumbs raw load error: {}".format(err))
             return {}
 
 ## Variáveis por save — podem ser carregadas com segurança em saves anteriores ao mod.
@@ -563,7 +744,7 @@ default _tl_node_count = 0
 
 ## Estado da interface — não é salvo.
 default _tl_modal_node  = None  ## nó cuja janela modal está aberta
-default _tl_load_slot   = ""    ## slot a carregar pelo label _tl_do_load
+default _tl_load_slot   = ""    ## slot a carregar pelo label wells_tl_do_load
 default _tl_pending_save_index    = None  ## legado — gravação de checkpoints removida; mantido para saves e testes antigos
 default _tl_early_save_idx        = None  ## legado — gravação de checkpoints removida; mantido para saves e testes antigos
 default _tl_ast_ready  = False  ## True quando o mapa AST estiver pronto
@@ -584,8 +765,6 @@ init python:
     if not hasattr(persistent, "_tl_var_notifs_enabled") or persistent._tl_var_notifs_enabled is None:
         persistent._tl_var_notifs_enabled = False
 
-    if not hasattr(persistent, "_tl_asset_thumb_dirty"):
-        persistent._tl_asset_thumb_dirty = False
 
     if not hasattr(persistent, "_tl_ghost_node_cache") or persistent._tl_ghost_node_cache is None:
         persistent._tl_ghost_node_cache = {}
@@ -600,68 +779,36 @@ init python:
     ## renpy.game é um objeto de módulo Python cujos atributos sobrevivem a renpy.load(), mas
     ## não são serializados por save_persistent(). Isso mantém persistent pequeno para
     ## que save_persistent() seja rápido durante os saltos.
-    ## O cache é carregado de um arquivo pickle na inicialização e gravado ao sair.
+    ## Um cache pickle antigo pode ser lido na inicialização. O Timeline não grava
+    ## miniaturas ao encerrar o jogo.
     _tl_thumbs_path = os.path.join(renpy.config.savedir, "_tl_thumbs.pkl")
     try:
         if os.path.exists(_tl_thumbs_path):
-            thumb_data = _tl_load_thumb_dict(_tl_thumbs_path)
-            renpy.game._tl_thumb_cache       = thumb_data.get("thumb", {})
-            renpy.game._tl_asset_thumb_cache = thumb_data.get("asset_thumb", {})
+            _wells_tl_thumb_data = _tl_load_thumb_dict(_tl_thumbs_path)
+            renpy.game._tl_thumb_cache       = _wells_tl_thumb_data.get("thumb", {})
+            renpy.game._tl_asset_thumb_cache = _wells_tl_thumb_data.get("asset_thumb", {})
         else:
-            _tl_log("TL thumbs init: no pkl file — starting empty")
+            _tl_log("Timeline thumbs init: no pkl file — starting empty")
             renpy.game._tl_thumb_cache      = {}
             renpy.game._tl_asset_thumb_cache = {}
     except Exception as e:
-        _tl_log("TL thumbs load error: {}".format(e))
+        _tl_log("Timeline thumbs load error: {}".format(e))
         renpy.game._tl_thumb_cache      = {}
         renpy.game._tl_asset_thumb_cache = {}
 
     ## Migração única: transfere os caches persistentes existentes para renpy.game.
     ## Depois disso, persistent._tl_thumb_cache / _tl_asset_thumb_cache permanecem vazios.
-    mig_thumb  = len(getattr(persistent, "_tl_thumb_cache", None) or {})
-    mig_asset  = len(getattr(persistent, "_tl_asset_thumb_cache", None) or {})
-    if mig_thumb:
+    _wells_tl_mig_thumb  = len(getattr(persistent, "_tl_thumb_cache", None) or {})
+    _wells_tl_mig_asset  = len(getattr(persistent, "_tl_asset_thumb_cache", None) or {})
+    if _wells_tl_mig_thumb:
         renpy.game._tl_thumb_cache.update(persistent._tl_thumb_cache)
         persistent._tl_thumb_cache = {}
-    if mig_asset:
+    if _wells_tl_mig_asset:
         renpy.game._tl_asset_thumb_cache.update(persistent._tl_asset_thumb_cache)
         persistent._tl_asset_thumb_cache = {}
-    if mig_thumb or mig_asset:
-        _tl_log("TL thumbs migration: moved thumb={} asset={} from persistent".format(
-            mig_thumb, mig_asset))
-        if mig_asset:
-            persistent._tl_asset_thumb_dirty = True
-
-    def _tl_save_thumbs():
-        import gzip
-        thumb_cache       = getattr(renpy.game, "_tl_thumb_cache", None)
-        asset_thumb_cache = getattr(renpy.game, "_tl_asset_thumb_cache", None)
-        dirty             = getattr(persistent, "_tl_asset_thumb_dirty", False)
-        path              = os.path.join(renpy.config.savedir, "_tl_thumbs.pkl")
-        has_replay_thumbs = bool(thumb_cache)
-        no_file           = not os.path.exists(path)
-        has_asset_thumbs  = bool(asset_thumb_cache)
-        if not dirty and not has_replay_thumbs and not (no_file and has_asset_thumbs):
-            _tl_log("Timeline: gravação das miniaturas ignorada: cache sem alterações")
-            return
-        try:
-            from renpy.compat.pickle import dumps
-            thumb_data = {
-                "thumb":       thumb_cache or {},
-                "asset_thumb": asset_thumb_cache or {},
-            }
-            with gzip.open(path, "wb", compresslevel=1) as f:
-                f.write(dumps(thumb_data))
-            _tl_log("TL thumbs saved: thumb={} asset={}".format(
-                len(thumb_data["thumb"]), len(thumb_data["asset_thumb"])))
-            persistent._tl_asset_thumb_dirty = False
-            renpy.save_persistent()
-        except Exception as e:
-            _tl_log("TL thumbs save error: {}".format(e))
-
-    config.quit_callbacks.append(_tl_save_thumbs)
-
-
+    if _wells_tl_mig_thumb or _wells_tl_mig_asset:
+        _tl_log("Timeline thumbs migration: moved thumb={} asset={} from persistent".format(
+            _wells_tl_mig_thumb, _wells_tl_mig_asset))
 init -2 python:
 
     def _tl_count_locked_branches():
@@ -673,7 +820,7 @@ init -2 python:
         try:
             namemap = renpy.game.script.namemap
         except Exception as e:
-            _tl_log("TL AST: namemap not available: {}".format(e))
+            _tl_log("Timeline AST: namemap not available: {}".format(e))
             store._tl_ast_ready = True
             return
 
@@ -709,7 +856,7 @@ init -2 python:
         _history = getattr(store, "_tl_history", [])
         if not _history:
             _msg = "Salvage: nothing to do (empty history)"
-            _tl_log("TL salvage: " + _msg)
+            _tl_log("Timeline salvage: " + _msg)
             renpy.notify(_msg)
             return {"skipped": 0, "matched": 0, "unmatched": 0, "total": 0}
 
@@ -776,7 +923,7 @@ init -2 python:
             if _best is None:
                 _stale_to_live[_ak] = None
                 _unmatched += 1
-                _tl_log("TL salvage: node={} {}:{} -> unmatched (opts={})".format(
+                _tl_log("Timeline salvage: node={} {}:{} -> unmatched (opts={})".format(
                     _n.get("index"), _stored_file, _stored_line, len(_history_opts)))
                 continue
 
@@ -788,7 +935,7 @@ init -2 python:
             _n["img_name"] = None
             _matched    += 1
             _any_matched = True
-            _tl_log("TL salvage: node={} {} {}->{}".format(
+            _tl_log("Timeline salvage: node={} {} {}->{}".format(
                 _n.get("index"), _stored_file, _stored_line, _new_line))
 
         if _any_matched:
@@ -796,7 +943,7 @@ init -2 python:
             renpy.save_persistent()
 
         _msg = "Salvage: {} matched / {} missed / {} ok".format(_matched, _unmatched, _skipped)
-        _tl_log("TL salvage: total={} matched={} unmatched={} skipped={}".format(
+        _tl_log("Timeline salvage: total={} matched={} unmatched={} skipped={}".format(
             len(_history), _matched, _unmatched, _skipped))
         renpy.notify(_msg)
         return {"skipped": _skipped, "matched": _matched, "unmatched": _unmatched, "total": len(_history)}
@@ -866,7 +1013,7 @@ init python:
         ## Se _tl_history estiver ausente ou tiver tipo inválido, reinicia como lista vazia.
         history = getattr(_store, "_tl_history", None)
         if not isinstance(history, list):
-            _tl_log("TL: _tl_history invalid on load ({}), resetting".format(type(history)))
+            _tl_log("WELLS_TIMELINE: _tl_history invalid on load ({}), resetting".format(type(history)))
             _store._tl_history = []
 
         ## Valida cada nó e descarta silenciosamente as entradas malformadas.
@@ -883,7 +1030,7 @@ init python:
                 node.pop("chapter_end", None)
                 clean.append(node)
             else:
-                _tl_log("TL: dropping malformed node: {}".format(repr(node)[:80]))
+                _tl_log("WELLS_TIMELINE: dropping malformed node: {}".format(repr(node)[:80]))
         _store._tl_history = clean
 
         ## Reindexa os nós caso os índices estejam obsoletos.
@@ -909,5 +1056,10 @@ init python:
             len(_store._tl_history)))
 
     ## Registra o validador como callback after_load.
-    config.after_load_callbacks.append(_tl_validate_on_load)
+    try:
+        config.after_load_callbacks.append(_tl_validate_on_load)
+    except Exception:
+        ## O fallback instalado acima também chama este validador no SDK 6.99.
+        pass
+
 

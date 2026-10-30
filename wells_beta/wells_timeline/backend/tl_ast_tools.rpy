@@ -155,7 +155,7 @@ init -2 python:
                                         pass
                                 _walk_sl_jumps(_sobj.ast)
                         except Exception as _se:
-                            _tl_log("TL cfg: screen jump extract failed for '{}': {}".format(_sname, _se))
+                            _tl_log("Timeline cfg: screen jump extract failed for '{}': {}".format(_sname, _se))
                     d["screen_jumps"] = _screen_jumps if _screen_jumps else None
                 out.append(d)
             return out
@@ -184,7 +184,7 @@ init -2 python:
         for lname in labels:
             lnode = _namemap.get(lname)
             if lnode is None:
-                _tl_log("TL cfg dump: label '{}' not found in namemap".format(lname))
+                _tl_log("Timeline cfg dump: label '{}' not found in namemap".format(lname))
                 continue
             if isinstance(lnode, _rast.Label):
                 block = list(getattr(lnode, "block", None) or [])
@@ -200,7 +200,7 @@ init -2 python:
                 "next_label": _find_next_label(lnode),
                 "block": _serialize_block(block),
             }
-            _tl_log("TL cfg dump: '{}' -> {} stmts".format(lname, len(block)))
+            _tl_log("Timeline cfg dump: '{}' -> {} stmts".format(lname, len(block)))
 
         try:
             _outdir = os.path.dirname(outfile)
@@ -208,13 +208,13 @@ init -2 python:
                 os.makedirs(_outdir)
             with open(outfile, "w") as _f:
                 _tl_json.dump(result, _f, indent=2)
-            _tl_log("TL cfg dump: written to {}".format(outfile))
+            _tl_log("Timeline cfg dump: written to {}".format(outfile))
         except Exception as _e:
-            _tl_log("TL cfg dump error: {}".format(_e))
+            _tl_log("Timeline cfg dump error: {}".format(_e))
             renpy.notify("Falha ao exportar a CFG — consulte debug.txt")
             return
 
-        _tl_log("TL cfg dump: {} labels written to {}".format(len(result), outfile))
+        _tl_log("Timeline cfg dump: {} labels written to {}".format(len(result), outfile))
         renpy.notify("CFG exportada: {} rótulos".format(len(result)))
 
 ## -----------------------------------------------------------------------------

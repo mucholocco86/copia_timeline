@@ -14,20 +14,21 @@
 ## =============================================================================
 
 ## =============================================================================
-## Moldura de miniatura compartilhada — usada por tl_card e pelos cartões de ramos futuros.
+## Moldura de miniatura compartilhada — usada por wells_tl_card e pelos cartões de ramos futuros.
 ## img_disp: elemento visual já dimensionado ou None. O chamador é responsável pelo dimensionamento.
 ## locked/taken/highlighted: estados visuais dos cartões de ramos futuros (todos False/True/False para
 ## cartões comuns = sem sobreposição).
 ## fallback_text: exibido quando img_disp é None (somente em cartões comuns).
 ## =============================================================================
 
-screen tl_thumbnail_frame(cw, th, img_disp=None, locked=False, taken=True, highlighted=False, fallback_text=None):
+screen wells_tl_thumbnail_frame(cw, th, img_disp=None, locked=False, taken=True, highlighted=False, fallback_text=None):
 
     frame:
-        style "tl_frame_base"
+        xpadding 0
+        ypadding 0
         xsize cw
         ysize th
-        background Solid(TL["thumb_bg"])
+        background Solid("#0a0a0a")
 
         if img_disp is not None:
             add img_disp:
@@ -35,8 +36,9 @@ screen tl_thumbnail_frame(cw, th, img_disp=None, locked=False, taken=True, highl
                 yalign 0.5
         elif fallback_text is not None:
             text fallback_text:
-                style "tl_base_bold"
-                size TL_SIZE_TITLE
+                font "wells/fonts/Roboto-Regular.ttf"
+                bold True
+                size 38
                 color "#2a2820"
                 xalign 0.5 yalign 0.5
 
@@ -46,12 +48,9 @@ screen tl_thumbnail_frame(cw, th, img_disp=None, locked=False, taken=True, highl
                 yfill True
                 background Solid("#000000bb")
             if _tl_lock_displayable:
-                add _tl_lock_displayable:
+                add Transform(_tl_lock_displayable, xsize=36, ysize=36, fit="contain"):
                     xalign 0.5
                     yalign 0.5
-                    xsize 36
-                    ysize 36
-                    fit "contain"
         elif not taken:
             frame:
                 xfill True
@@ -59,9 +58,7 @@ screen tl_thumbnail_frame(cw, th, img_disp=None, locked=False, taken=True, highl
                 background Solid("#000000aa")
 
         if highlighted:
-            add Solid(TL["accent"]):
-                xsize cw
-                ysize 3
+            add Transform(Solid("#e8c97e"), xsize=cw, ysize=3):
                 yalign 0.0
 
 
@@ -69,21 +66,22 @@ screen tl_thumbnail_frame(cw, th, img_disp=None, locked=False, taken=True, highl
 ## Tela do cartão
 ## =============================================================================
 
-screen tl_card(node, cw=300):
+screen wells_tl_card(node, cw=300):
 
     python:
         _tl_is_current = (node["index"] == len(_tl_history) - 1 and
                             node.get("chosen_index") is None)
         _tl_img_name   = node.get("img_name")
-        _tl_use_thumb_first = bool(_tl_img_name and _tl_img_name_is_movie(_tl_img_name))
-        _tl_thumb      = _tl_node_thumb(node) if (not _tl_img_name or _tl_use_thumb_first) else None
+        _tl_thumb      = _tl_node_thumb(node)
+        _tl_use_thumb_first = bool(_tl_thumb)
         _tl_has_thumb  = _tl_img_name is not None or _tl_thumb is not None
         _tl_thumb_h    = int(cw * 9 / 16)
-        ## Resolve para um único elemento visual já dimensionado para tl_thumbnail_frame.
+        ## Resolve para um único elemento visual já dimensionado para wells_tl_thumbnail_frame.
         _tl_img_disp   = None
         if _tl_img_name and not (_tl_use_thumb_first and _tl_thumb):
             _tl_img_disp = _tl_img_thumb_displayable(_tl_img_name, cw, _tl_thumb_h, "cover")
-        elif _tl_thumb:
+        if _tl_img_disp is None and _tl_thumb:
+            ## Imagens dinâmicas/compostas usam a captura do momento da escolha como alternativa.
             _tl_img_disp = Transform(
                 _tl_thumb_displayable(_tl_thumb, node["index"]),
                 xsize=cw, ysize=_tl_thumb_h, fit="contain")
@@ -98,29 +96,29 @@ screen tl_card(node, cw=300):
         xsize cw
         spacing 0
 
-        use tl_thumbnail_frame(cw, _tl_thumb_h, img_disp=_tl_img_disp, fallback_text=_tl_fallback)
+        use wells_tl_thumbnail_frame(cw, _tl_thumb_h, img_disp=_tl_img_disp, fallback_text=_tl_fallback)
 
         if _tl_is_current:
-            use tl_card_current(node, cw)
+            use wells_tl_card_current(node, cw)
         else:
-            use tl_card_past(node, _tl_chosen_label, _tl_has_new, cw)
+            use wells_tl_card_past(node, _tl_chosen_label, _tl_has_new, cw)
 
 
 ## =============================================================================
 ## Conteúdo do cartão anterior
 ## =============================================================================
 
-screen tl_card_past(node, chosen_label, has_new, cw=300):
+screen wells_tl_card_past(node, chosen_label, has_new, cw=300):
 
     vbox:
         xsize cw
         spacing 0
 
         frame:
-            style "tl_frame_base"
             xsize cw
-            padding (12, 10, 12, 10)
-            background Solid("#00000044")
+            xpadding 12
+            ypadding 10
+            background Solid("#00000060")
 
             hbox:
                 xsize cw - 24
@@ -128,16 +126,17 @@ screen tl_card_past(node, chosen_label, has_new, cw=300):
                 yalign 0.5
 
                 text (chosen_label or "—"):
-                    style "tl_base"
-                    size TL_SIZE_BODY
-                    color TL["opt_chosen_fg"]
+                    font "wells/fonts/Roboto-Regular.ttf"
+                    size 21
+                    color "#f8f4ecec"
                     xmaximum cw - 28
                     yalign 0.5
 
         frame:
-            style "tl_frame_base"
+            xpadding 0
+            ypadding 0
             xsize cw ysize 1
-            background Solid(TL["divider"])
+            background Solid("#e6161691")
 
         python:
             _tl_diverged = node.get("_shadow_orig_chosen") is not None
@@ -147,48 +146,50 @@ screen tl_card_past(node, chosen_label, has_new, cw=300):
             spacing 0
 
             frame:
-                style "tl_frame_base"
                 xsize cw // 2
                 ysize 46
-                padding (12, 0, 8, 0)
-                background Solid(TL["footer_bg"])
+                left_padding 12
+                top_padding 0
+                right_padding 8
+                bottom_padding 0
+                background Solid("#00000055")
 
                 if _tl_diverged:
                     text "⎇":
-                        style "tl_icon"
-                        size TL_SIZE_BODY
-                        color TL["header_sub"]
+                        font "wells/fonts/Roboto-Regular.ttf"
+                        size 21
+                        color "#9a9183"
                         yalign 0.5
                         italic False
                 elif has_new:
                     text "●":
-                        style "tl_icon"
-                        size TL_SIZE_DOT
-                        color TL["new_dot"]
+                        font "wells/fonts/Roboto-Regular.ttf"
+                        size 14
+                        color "#f8f4ecec"
                         yalign 0.5
                         italic False
 
             button:
-                style "tl_frame_base"
                 xsize cw // 2
                 ysize 46
-                padding (0, 0, 0, 0)
-                background Solid(TL["footer_bg"])
-                hover_background _tl_hover_gradient_wide
+                xpadding 0
+                ypadding 0
+                background Solid("#00000060")
+                hover_background Solid("#e6161646")
                 action SetVariable("_tl_modal_node", node)
 
                 text "Todas as opções ▾":
-                    style "tl_base"
-                    size TL_SIZE_BODY
-                    color TL["btn_text"]
+                    font "wells/fonts/Roboto-Regular.ttf"
+                    size 21
+                    color "#f8f4ecec"
                     xalign 0.5 yalign 0.5
 
 
 ## =============================================================================
-## Linha de opção individual — usada por tl_card_current.
+## Linha de opção individual — usada por wells_tl_card_current.
 ## =============================================================================
 
-screen tl_card_option_row(node, i, opt, cw, shadow_ci):
+screen wells_tl_card_option_row(node, i, opt, cw, shadow_ci):
 
     python:
         _tl_show_dot  = not _tl_option_seen(node, i)
@@ -200,9 +201,9 @@ screen tl_card_option_row(node, i, opt, cw, shadow_ci):
         spacing 0
 
         frame:
-            style "tl_frame_base"
             xsize cw
-            padding (12, 8, 12, 8)
+            xpadding 12
+            ypadding 8
             background Solid("#00000033")
 
             vbox:
@@ -217,41 +218,42 @@ screen tl_card_option_row(node, i, opt, cw, shadow_ci):
                     ## A seta de auxílio à repetição tem prioridade sobre o indicador de item não visto.
                     if _tl_is_aid:
                         text "→":
-                            style "tl_icon"
-                            size TL_SIZE_BODY
-                            color TL["header_sub"]
+                            font "wells/fonts/Roboto-Regular.ttf"
+                            size 21
+                            color "#a5a3a1"
                             yalign 0.5
                             italic False
                     elif _tl_show_dot:
                         text "●":
-                            style "tl_icon"
-                            size TL_SIZE_DOT
-                            color TL["opt_new_dot"]
+                            font "wells/fonts/Roboto-Regular.ttf"
+                            size 14
+                            color "#a5a3a1d0"
                             yalign 0.5
                             italic False
                     else:
                         null xsize 14
 
                     text opt:
-                        style "tl_base"
-                        size TL_SIZE_BODY
-                        color TL["opt_fg"]
+                        font "wells/fonts/Roboto-Regular.ttf"
+                        size 21
+                        color "#f0ece4"
                         xmaximum cw - 44
                         yalign 0.5
 
 
         if i < _tl_opt_count - 1:
             frame:
-                style "tl_frame_base"
+                xpadding 0
+                ypadding 0
                 xsize cw ysize 1
-                background Solid(TL["divider"])
+                background Solid("#e6161691")
 
 
 ## =============================================================================
 ## Conteúdo do cartão atual — todas as opções em linhas
 ## =============================================================================
 
-screen tl_card_current(node, cw=300):
+screen wells_tl_card_current(node, cw=300):
 
     python:
         _shadow_ci = _tl_shadow_match(_tl_shadow_path or [], node)
@@ -261,53 +263,56 @@ screen tl_card_current(node, cw=300):
         spacing 0
 
         for _i, _opt in enumerate(node["options"]):
-            use tl_card_option_row(node, _i, _opt, cw, _shadow_ci)
+            use wells_tl_card_option_row(node, _i, _opt, cw, _shadow_ci)
 
         frame:
-            style "tl_frame_base"
             xsize cw
-            padding (0, 6, 10, 6)
+            left_padding 0
+            top_padding 6
+            right_padding 10
+            bottom_padding 6
             background None
 
             frame:
-                style "tl_frame_base"
-                padding (10, 5, 10, 5)
-                background Solid(TL["accent"])
+                xpadding 10
+                ypadding 5
+                background Solid("#2e2e2edc")
                 xalign 0.0
 
                 text "AGORA":
-                    style "tl_base_bold"
-                    size TL_SIZE_BODY
-                    color "#1a1408"
+                    font "wells/fonts/Roboto-Regular.ttf"
+                    bold True
+                    size 21
+                    color "#adacab"
                     italic False
 
 ## -----------------------------------------------------------------------------
-## Seção 2: ui/tl_debug.rpy
+## Seção 2: ui/wells_tl_debug.rpy
 ## -----------------------------------------------------------------------------
 
 ## =============================================================================
-## WELLS TIMELINE — tl_debug.rpy
+## WELLS TIMELINE — wells_tl_debug.rpy
 ## Sobreposição de depuração e linhas de dados de depuração.
 ## =============================================================================
 
 default _tl_debug_visible = False
 
-screen _tl_debug_overlay():
+screen wells_tl_debug_overlay():
     if _tl_debug_visible:
-        use tl_debug()
+        use wells_tl_debug()
 
-screen tl_debug():
+screen wells_tl_debug():
     zorder 999
     modal False
 
     drag:
-        drag_name "tl_debug"
+        drag_name "wells_tl_debug"
         xpos 10 ypos 10
 
         frame:
-            style "tl_frame_base"
             background Solid("#000000dd")
-            padding (14, 12, 14, 12)
+            xpadding 14
+            ypadding 12
             xsize 440
 
             vbox:
@@ -317,85 +322,87 @@ screen tl_debug():
                 hbox:
                     xfill True
                     text "TIMELINE — DEPURAÇÃO":
-                        style "tl_base_bold"
-                        size TL_SIZE_BODY
+                        font "wells/fonts/Roboto-Regular.ttf"
+                        bold True
+                        size 21
                         color "#a5b4fc"
                         xfill True
                     button:
-                        style "tl_frame_base"
                         background None
                         hover_background None
-                        padding (0, 0, 0, 0)
+                        xpadding 0
+                        ypadding 0
                         yalign 0.0
                         action ToggleVariable("_tl_debug_visible")
                         text "✕":
-                            style "tl_icon"
-                            size TL_SIZE_BODY
+                            font "wells/fonts/Roboto-Regular.ttf"
+                            size 21
                             color "#64748b"
                             hover_color "#f1f5f9"
 
                 null ysize 4
-                use tl_dbrow("RenPy", "{}.{}.{}".format(renpy.version_tuple[0], renpy.version_tuple[1], renpy.version_tuple[2]))
-                use tl_dbrow("node_count",  str(_tl_node_count))
-                use tl_dbrow("history len", str(len(_tl_history)))
-                use tl_dbrow("ast_ready",   str(_tl_ast_ready))
-                use tl_dbrow("ast_menus",   str(len(_tl_ast_map)))
+                use wells_tl_dbrow("RenPy", "{}.{}.{}".format(renpy.version_tuple[0], renpy.version_tuple[1], renpy.version_tuple[2]))
+                use wells_tl_dbrow("node_count",  str(_tl_node_count))
+                use wells_tl_dbrow("history len", str(len(_tl_history)))
+                use wells_tl_dbrow("ast_ready",   str(_tl_ast_ready))
+                use wells_tl_dbrow("ast_menus",   str(len(_tl_ast_map)))
 
                 null ysize 4
                 if _tl_history:
                     python:
                         _dbnode = _tl_history[-1]
                     text "ÚLTIMO NÓ":
-                        style "tl_base_bold"
+                        font "wells/fonts/Roboto-Regular.ttf"
+                        bold True
                         size 16
                         color "#fb923c"
-                    use tl_dbrow("prompt",  (_dbnode["prompt"] or "(none)")[:50])
-                    use tl_dbrow("chosen",  str(_dbnode.get("chosen_index")))
-                    use tl_dbrow("options", str(len(_dbnode["options"])))
-                    use tl_dbrow("thumb",   "{}b".format(len(_tl_node_thumb(_dbnode) or b"")) if _tl_node_thumb(_dbnode) else "none")
-                    use tl_dbrow("ast_key", str(_dbnode.get("ast_key")))
+                    use wells_tl_dbrow("prompt",  (_dbnode["prompt"] or "(none)")[:50])
+                    use wells_tl_dbrow("chosen",  str(_dbnode.get("chosen_index")))
+                    use wells_tl_dbrow("options", str(len(_dbnode["options"])))
+                    use wells_tl_dbrow("thumb",   "{}b".format(len(_tl_node_thumb(_dbnode) or b"")) if _tl_node_thumb(_dbnode) else "none")
+                    use wells_tl_dbrow("ast_key", str(_dbnode.get("ast_key")))
 
                 null ysize 8
                 textbutton "Exportar AST da CFG (tudo)":
-                    style "tl_frame_base"
                     background Solid("#1e293b")
                     hover_background Solid("#334155")
-                    padding (8, 6, 8, 6)
+                    xpadding 8
+                    ypadding 6
                     action Function(_tl_cfg_dump_ast)
-                    text_style "tl_base"
-                    text_size TL_SIZE_DOT
+                    text_font "wells/fonts/Roboto-Regular.ttf"
+                    text_size 14
                     text_color "#7dd3fc"
                     text_hover_color "#ffffff"
 
                 null ysize 4
                 textbutton "Recuperar ast_keys do histórico":
-                    style "tl_frame_base"
                     background Solid("#1e293b")
                     hover_background Solid("#334155")
-                    padding (8, 6, 8, 6)
+                    xpadding 8
+                    ypadding 6
                     action Function(_tl_salvage_history_ast_keys)
-                    text_style "tl_base"
-                    text_size TL_SIZE_DOT
+                    text_font "wells/fonts/Roboto-Regular.ttf"
+                    text_size 14
                     text_color "#7dd3fc"
                     text_hover_color "#ffffff"
 
                 null ysize 4
                 text "Use o botão ✕ para ocultar":
-                    style "tl_base"
-                    size TL_SIZE_DOT
+                    font "wells/fonts/Roboto-Regular.ttf"
+                    size 14
                     color "#334155"
 
-screen tl_dbrow(label, value):
+screen wells_tl_dbrow(label, value):
     hbox:
         spacing 8
         text (label + ":"):
-            style "tl_base"
-            size TL_SIZE_BADGE
+            font "wells/fonts/Roboto-Regular.ttf"
+            size 12
             color "#64748b"
             xminimum 120
         text value:
-            style "tl_base"
-            size TL_SIZE_DOT
+            font "wells/fonts/Roboto-Regular.ttf"
+            size 14
             color "#e2e8f0"
 
 ## -----------------------------------------------------------------------------
@@ -406,7 +413,7 @@ screen tl_dbrow(label, value):
 ## Cartão de ramo futuro — um ramo de um nó If.
 ## =============================================================================
 
-screen tl_ghost_card(ghost, bi, cw, th):
+screen wells_tl_ghost_card(ghost, bi, cw, th):
 
     python:
         _gbc_ast    = _tl_ghost_ast(ghost["ast_key"])
@@ -427,7 +434,7 @@ screen tl_ghost_card(ghost, bi, cw, th):
         xsize cw
         spacing 0
 
-        use tl_thumbnail_frame(cw, th,
+        use wells_tl_thumbnail_frame(cw, th,
             img_disp=_gbc_img_disp,
             locked=_gbc_locked,
             taken=_gbc_taken,
@@ -436,15 +443,15 @@ screen tl_ghost_card(ghost, bi, cw, th):
 
         ## Barra inferior: rótulo da condição
         frame:
-            style "tl_frame_base"
             xsize cw
-            padding (12, 8, 12, 8)
+            xpadding 12
+            ypadding 8
             background Solid("#00000044")
 
             text _gbc_cond:
-                style "tl_base"
-                size TL_SIZE_BODY
-                color TL["opt_fg"]
+                font "wells/fonts/Roboto-Regular.ttf"
+                size 21
+                color "#f0ece4"
                 substitute False
                 xmaximum cw - 24
                 yalign 0.5
@@ -454,16 +461,17 @@ screen tl_ghost_card(ghost, bi, cw, th):
 ## Linhas de ramos futuros — exibidas abaixo dos cartões principais do Timeline.
 ## =============================================================================
 
-screen tl_ghost_rows(ghost_nodes, card_w, cols, spacing, reverse_clusters=False):
+screen wells_tl_ghost_rows(ghost_nodes, card_w, cols, spacing, reverse_clusters=False):
     if ghost_nodes:
         vbox:
             spacing spacing
             ## Separador discreto entre a última linha do Timeline e as linhas de ramos futuros
             frame:
-                style "tl_frame_base"
+                xpadding 0
+                ypadding 0
                 xsize cols * card_w + (cols - 1) * spacing
                 ysize 3
-                background Solid(TL["divider"])
+                background Solid("#e6161691")
             python:
                 _tl_gbc_th = int(card_w * 9 / 16)
                 ## Opcionalmente inverte a ordem dos grupos (mais recente primeiro), mantendo
@@ -516,18 +524,20 @@ screen tl_ghost_rows(ghost_nodes, card_w, cols, spacing, reverse_clusters=False)
                                 if _gbc_start:
                                     ## Moldura transparente — null não é renderizado dentro de if/for aninhados no Ren'Py.
                                     frame:
-                                        style "tl_frame_base"
+                                        xpadding 0
+                                        ypadding 0
                                         xsize spacing
                                         ysize _tl_gbc_th + 42
                                         background Solid("#00000000")
                                 else:
                                     frame:
-                                        style "tl_frame_base"
+                                        xpadding 0
+                                        ypadding 0
                                         xsize spacing
                                         ysize _tl_gbc_th + 42
-                                        background Solid(TL["accent"] + "2a")
+                                        background Solid("#e8c97e2a")
 
-                            use tl_ghost_card(_gbc_ghost, _gbc_bi, card_w, _tl_gbc_th)
+                            use wells_tl_ghost_card(_gbc_ghost, _gbc_bi, card_w, _tl_gbc_th)
 
                         python:
                             _gbc_pad = cols - len(_tl_gbc_row)
@@ -535,19 +545,19 @@ screen tl_ghost_rows(ghost_nodes, card_w, cols, spacing, reverse_clusters=False)
                             null xsize (spacing + card_w)
 
 ## -----------------------------------------------------------------------------
-## Seção 4: ui/tl_modal.rpy
+## Seção 4: ui/wells_tl_modal.rpy
 ## -----------------------------------------------------------------------------
 
 ## =============================================================================
-## WELLS TIMELINE — tl_modal.rpy
+## WELLS TIMELINE — wells_tl_modal.rpy
 ## Sobreposição modal: lista completa de opções com miniatura, exibida ao selecionar "Todas as opções ▾".
 ## =============================================================================
 
 ## =============================================================================
-## Linha de opção individual — usada por tl_modal com ou sem rolagem.
+## Linha de opção individual — usada por wells_tl_modal com ou sem rolagem.
 ## =============================================================================
 
-screen tl_modal_option_row(node, i, opt, m_w, opt_count):
+screen wells_tl_modal_option_row(node, i, opt, m_w, opt_count):
 
     python:
         _tl_is_chosen = (node.get("chosen_index") == i)
@@ -563,10 +573,11 @@ screen tl_modal_option_row(node, i, opt, m_w, opt_count):
 
         button:
             xfill True
-            padding (16, 12, 16, 12)
+            xpadding 16
+            ypadding 12
             background None
-            hover_background _tl_hover_gradient
-            action [Function(_tl_jump, node["index"], i), Hide("tl_modal"), Hide("timeline"), Jump("_tl_do_load")]
+            hover_background Solid("#e6161628")
+            action [Function(_tl_jump, node["index"], i), Hide("wells_tl_modal"), Hide("wells_timeline"), Jump("wells_tl_do_load")]
 
             hbox:
                 xfill True
@@ -575,59 +586,62 @@ screen tl_modal_option_row(node, i, opt, m_w, opt_count):
 
                 if _tl_is_chosen:
                     text "→":
-                        style "tl_icon"
-                        size TL_SIZE_BODY
-                        color TL["opt_chosen_fg"]
+                        font "wells/fonts/Roboto-Regular.ttf"
+                        size 21
+                        color "#f0ece4"
                         yalign 0.5
                 elif _tl_is_aid:
                     text "→":
-                        style "tl_icon"
-                        size TL_SIZE_BODY
-                        color TL["header_sub"]
+                        font "wells/fonts/Roboto-Regular.ttf"
+                        size 21
+                        color "#9a9183"
                         yalign 0.5
                         italic False
                 elif _tl_show_dot:
                     text "●":
-                        style "tl_icon"
-                        size TL_SIZE_DOT
-                        color TL["opt_new_dot"]
+                        font "wells/fonts/Roboto-Regular.ttf"
+                        size 14
+                        color "#e8c97e"
                         yalign 0.5
                         italic False
                 else:
                     null xsize 13
 
                 text opt:
-                    style "tl_base"
-                    size TL_SIZE_BODY
-                    color TL["opt_fg"]
+                    font "wells/fonts/Roboto-Regular.ttf"
+                    size 21
+                    color "#f0ece4"
                     xmaximum m_w - 60
                     yalign 0.5
 
         if i < opt_count - 1:
             frame:
-                style "tl_frame_base"
                 xfill True ysize 2
-                padding (20, 0, 20, 0)
+                xpadding 20
+                ypadding 0
                 background None
 
                 frame:
-                    style "tl_frame_base"
+                    xpadding 0
+                    ypadding 0
                     xfill True ysize 1
-                    background Solid(TL["divider"])
+                    background Solid("#e6161691")
 
 
-screen tl_modal(node):
+screen wells_tl_modal(node):
     modal True
     zorder 300
 
 
     frame:
-        style "tl_frame_base"
+        xpadding 0
+        ypadding 0
         xfill True yfill True
-        background Solid("#000000aa")
+        background Solid("#000000c9")
 
         button:
-            style "tl_frame_base"
+            xpadding 0
+            ypadding 0
             xfill True yfill True
             background None
             action SetVariable("_tl_modal_node", None)
@@ -636,8 +650,8 @@ screen tl_modal(node):
         _tl_m_w         = 500
         _tl_m_pad       = 28
         _tl_m_img_name  = node.get("img_name")
-        _tl_m_use_thumb_first = bool(_tl_m_img_name and _tl_img_name_is_movie(_tl_m_img_name))
-        _tl_m_thumb     = _tl_node_thumb(node) if (not _tl_m_img_name or _tl_m_use_thumb_first) else None
+        _tl_m_thumb     = _tl_node_thumb(node)
+        _tl_m_use_thumb_first = bool(_tl_m_thumb)
         _tl_m_has_thumb = _tl_m_img_name is not None or _tl_m_thumb is not None
         _tl_m_thumb_w   = _tl_m_w - (_tl_m_pad * 2)
         _tl_m_thumb_h   = int(_tl_m_thumb_w * 9 / 16)
@@ -645,7 +659,8 @@ screen tl_modal(node):
         _tl_m_tdisp = None
         if _tl_m_img_name and not (_tl_m_use_thumb_first and _tl_m_thumb):
             _tl_m_img_disp = _tl_img_thumb_displayable(_tl_m_img_name, _tl_m_thumb_w, _tl_m_thumb_h, "cover")
-        elif _tl_m_has_thumb and _tl_m_thumb:
+        if _tl_m_img_disp is None and _tl_m_thumb:
+            ## Imagens dinâmicas/compostas usam a captura do momento da escolha.
             _tl_m_tdisp = _tl_thumb_displayable(_tl_m_thumb, node["index"])
         _tl_m_row_h        = 52
         _tl_m_opt_count    = len(node.get("options", []))
@@ -659,43 +674,44 @@ screen tl_modal(node):
         xalign 0.5
         yalign 0.45
         background None
-        padding (0,0,0,0)
+        xpadding 0
+        ypadding 0
 
         frame:
-            style "tl_frame_base"
             xfill True
-            background Solid("#111111cc")
-            padding (28, 16, 28, 16)
+            background Solid("#111111b7")
+            xpadding 28
+            ypadding 16
 
             vbox:
                 xfill True
                 spacing 0
 
                 frame:
-                    style "tl_frame_base"
                     xfill True
-                    padding (8, 2, 8, 2)
+                    xpadding 8
+                    ypadding 2
                     background None
 
                     button:
-                        style "tl_frame_base"
                         xalign 1.0
                         background None
-                        hover_background Solid("#ffffff14")
-                        padding (12, 6, 12, 6)
+                        hover_background Solid("#6e6e6e14")
+                        xpadding 12
+                        ypadding 6
                         action SetVariable("_tl_modal_node", None)
 
-                        text "✕":
-                            style "tl_icon"
-                            size TL_SIZE_BODY
-                            color TL["btn_text"]
-                            hover_color TL["header_text"]
+                        text "Fechar":
+                            font "wells/fonts/Roboto-Regular.ttf"
+                            size 21
+                            color "#c8c0b4"
+                            hover_color "#2bff00"
                             italic False
 
                 frame:
-                    style "tl_frame_base"
                     xfill True
-                    padding (28, 16, 28, 16)
+                    xpadding 28
+                    ypadding 16
                     background None
 
                     vbox:
@@ -704,39 +720,42 @@ screen tl_modal(node):
 
                         if _tl_m_has_thumb:
                             frame:
-                                style "tl_frame_base"
                                 xfill True
                                 ysize _tl_m_thumb_h
-                                background Solid(TL["thumb_bg"])
-                                padding (0, 0, 0, 0)
+                                background Solid("#0a0a0a")
+                                xpadding 0
+                                ypadding 0
 
                                 if _tl_m_img_disp is not None:
                                     add _tl_m_img_disp
                                 elif _tl_m_tdisp is not None:
-                                    add _tl_m_tdisp:
-                                        ysize _tl_m_thumb_h
-                                        fit "cover"
+                                    add Transform(_tl_m_tdisp, ysize=_tl_m_thumb_h, fit="cover"):
                                         xalign 0.5
                                         yalign 0.5
 
                         frame:
-                            style "tl_frame_base"
                             xfill True
-                            padding (0, 28, 0, 12)
+                            left_padding 0
+                            top_padding 28
+                            right_padding 0
+                            bottom_padding 12
                             background None
 
                             text "Todas as opções":
-                                style "tl_base_bold"
-                                size TL_SIZE_HEADER
-                                color TL["modal_header"]
+                                font "wells/fonts/Roboto-Regular.ttf"
+                                bold True
+                                size 28
+                                color "#fafaf9"
 
                         frame:
-                            style "tl_frame_base"
+                            xpadding 0
+                            ypadding 0
                             xfill True ysize 3
-                            background Solid(TL["divider"])
+                            background Solid("#e6161691")
 
                         frame:
-                            style "tl_frame_base"
+                            xpadding 0
+                            ypadding 0
                             xfill True ysize 10
                             background None
 
@@ -752,7 +771,7 @@ screen tl_modal(node):
                                     spacing 0
 
                                     for _i, _opt in enumerate(node["options"]):
-                                        use tl_modal_option_row(node, _i, _opt, _tl_m_w, _tl_m_opt_count)
+                                        use wells_tl_modal_option_row(node, _i, _opt, _tl_m_w, _tl_m_opt_count)
 
                         else:
                             vbox:
@@ -760,7 +779,7 @@ screen tl_modal(node):
                                 spacing 0
 
                                 for _i, _opt in enumerate(node["options"]):
-                                    use tl_modal_option_row(node, _i, _opt, _tl_m_w, _tl_m_opt_count)
+                                    use wells_tl_modal_option_row(node, _i, _opt, _tl_m_w, _tl_m_opt_count)
 
                         null ysize 14
 
@@ -784,27 +803,36 @@ screen tl_modal(node):
 ## =============================================================================
 
 
-transform _tl_notify_appear:
+transform wells_tl_notify_appear:
     on show:
         alpha 0
         linear .25 alpha 1.0
     on hide:
         linear .5 alpha 0.0
 
-screen _tl_notify(message):
+screen wells_tl_notify(message):
     zorder 100
-    style_prefix "notify"
-    frame at _tl_notify_appear:
+    frame at wells_tl_notify_appear:
+        xalign 0.5
+        yalign 0.05
+        background Solid("#000000bb")
+        xpadding 14
+        ypadding 10
         text "[message!t]":
-            font _tl_fontgroup
-    timer 3.25 action Hide('_tl_notify')
+            font "wells/fonts/Roboto-Regular.ttf"
+            size 21
+            color "#f0ece4"
+            outlines []
+            xalign 0.5
+            text_align 0.5
+    timer 3.25 action Hide('wells_tl_notify')
 
 
 ## =============================================================================
 ## Conteúdo da tela de rotas — barra de etiquetas
 ## =============================================================================
 
-screen tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
+screen wells_tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
     ## Bloqueia rollback/avanço para que a roda do mouse não feche a tela
     key "rollback"   action NullAction()
     key "rollforward" action NullAction()
@@ -814,12 +842,12 @@ screen tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
     python:
         _tl_chip_h      = wells_ui(36)
         _tl_chip_gap    = wells_ui(10)
-        _TL_ROUTE_FOLD  = 24
+        _WELLS_TL_ROUTE_FOLD  = 24
         _tl_side_pad    = wells_ui(40)
         _tl_panel_width = panel_width if panel_width is not None else config.screen_width
         _tl_avail       = max(1, _tl_panel_width - (_tl_side_pad * 2))
         _tl_chip_est    = wells_ui(300)   ## largura estimada da etiqueta para calcular as colunas
-        _tl_chips_per_row = _TL_MAX(1, (_tl_avail + _tl_chip_gap) // (_tl_chip_est + _tl_chip_gap))
+        _tl_chips_per_row = _WELLS_TL_MAX(1, (_tl_avail + _tl_chip_gap) // (_tl_chip_est + _tl_chip_gap))
         _tl_chip_w      = (_tl_avail - _tl_chip_gap * (_tl_chips_per_row - 1)) // _tl_chips_per_row
         _tl_key_w       = _tl_chip_w * 55 // 100
         _tl_val_w       = _tl_chip_w - _tl_key_w
@@ -828,17 +856,18 @@ screen tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
             _tl_ghost_vars.update(_tl_ghost_ast(_g["ast_key"]).get("affecting_vars") or _g.get("affecting_vars") or [])
         _tl_highlighted = _tl_ghost_vars | (getattr(store, "_tl_recently_changed_vars", None) or set())
         _tl_hl_count    = len([1 for _n, _v in _tl_route_chips if _n in _tl_highlighted])
-        _tl_hl_rows     = _TL_MAX(3, -(-_tl_hl_count // _tl_chips_per_row)) if _tl_chips_per_row else 3
-        _TL_ROUTE_FOLD  = _tl_hl_rows * _tl_chips_per_row
+        _tl_hl_rows     = _WELLS_TL_MAX(3, -(-_tl_hl_count // _tl_chips_per_row)) if _tl_chips_per_row else 3
+        _WELLS_TL_ROUTE_FOLD  = _tl_hl_rows * _tl_chips_per_row
         _tl_card_spacing = wells_ui(16)
         _tl_min_card = wells_ui(160)
-        _tl_max_cols = _TL_MAX(1, (_tl_avail + _tl_card_spacing) // (_tl_min_card + _tl_card_spacing))
+        _tl_max_cols = _WELLS_TL_MAX(1, (_tl_avail + _tl_card_spacing) // (_tl_min_card + _tl_card_spacing))
         _tl_card_cols = _tl_max_cols if _tl_max_cols < 5 else 5
         _tl_card_w   = (_tl_avail - _tl_card_spacing * (_tl_card_cols - 1)) // _tl_card_cols
 
     if not _tl_route_chips:
         frame:
-            style "tl_frame_base"
+            xpadding 0
+            ypadding 0
             xfill True yfill True
             background None
 
@@ -847,15 +876,16 @@ screen tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
                 spacing 10
 
                 text "Nenhuma variável de rota foi rastreada ainda.":
-                    style "tl_base_bold"
-                    size TL_SIZE_BODY
-                    color TL["header_text"]
+                    font "wells/fonts/Roboto-Regular.ttf"
+                    bold True
+                    size 21
+                    color "#f0ece4"
                     xalign 0.5
 
                 text "As variáveis de rota são detectadas nos scripts do jogo na primeira inicialização.":
-                    style "tl_base"
-                    size TL_SIZE_BODY
-                    color TL["header_sub"]
+                    font "wells/fonts/Roboto-Regular.ttf"
+                    size 21
+                    color "#9a9183"
                     xalign 0.5
 
     else:
@@ -870,10 +900,12 @@ screen tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
                 draggable True
 
                 frame:
-                    style "tl_frame_base"
                     xfill True
                     background None
-                    padding wells_ui_pad(40, 24)
+                    left_padding wells_ui_signed(40)
+                    top_padding wells_ui_signed(24)
+                    right_padding wells_ui_signed(40)
+                    bottom_padding wells_ui_signed(24)
 
                     vbox:
                         xfill True
@@ -882,7 +914,7 @@ screen tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
                         ## ── Barra de etiquetas — linhas calculadas em Python ─────────────────
                         python:
                             _visible_chips = _tl_route_chips if tl_route_expanded \
-                                else _tl_route_chips[:_TL_ROUTE_FOLD]
+                                else _tl_route_chips[:_WELLS_TL_ROUTE_FOLD]
                             _hidden_count  = len(_tl_route_chips) - len(_visible_chips)
                             _chip_rows = [
                                 _visible_chips[_i:_i + _tl_chips_per_row]
@@ -897,12 +929,13 @@ screen tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
                                     python:
                                         _chip_key_label = _tl_prettify_var(_chip_name)
                                         _chip_val_label = _tl_strip_renpy_tags(str(_chip_val))
-                                        _chip_key_bg    = (TL["accent"] + "44") if _chip_name in _tl_highlighted else TL["btn_hover_bg"]
+                                        _chip_key_bg    = ("#1b32fff8") if _chip_name in _tl_highlighted else "#ffffff28"
 
                                     button:
                                         background None
                                         hover_background None
-                                        padding (0, 0, 0, 0)
+                                        xpadding 0
+                                        ypadding 0
                                         xsize _tl_chip_w
                                         yminimum _tl_chip_h
 
@@ -916,62 +949,64 @@ screen tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
 
                                             ## Metade da chave
                                             frame:
-                                                style "tl_frame_base"
                                                 background Solid(_chip_key_bg)
-                                                padding (10, 6, 10, 6)
+                                                xpadding 10
+                                                ypadding 6
                                                 xmaximum _tl_key_w
                                                 yminimum _tl_chip_h
 
                                                 text _chip_key_label:
-                                                    style "tl_base"
-                                                    size TL_SIZE_BODY
-                                                    color TL["btn_text"]
+                                                    font "wells/fonts/Roboto-Regular.ttf"
+                                                    size 21
+                                                    color "#c8c0b4"
                                                     yalign 0.5
 
                                             ## Metade do valor
                                             frame:
-                                                style "tl_frame_base"
-                                                background Solid(TL["btn_bg"])
-                                                padding (10, 6, 10, 6)
+                                                background Solid("#ffffff14")
+                                                xpadding 10
+                                                ypadding 6
                                                 xmaximum _tl_val_w
                                                 yminimum _tl_chip_h
 
                                                 text _chip_val_label:
-                                                    style "tl_base"
-                                                    size TL_SIZE_BODY
-                                                    color TL["header_text"]
+                                                    font "wells/fonts/Roboto-Regular.ttf"
+                                                    size 21
+                                                    color "#f0ece4"
                                                     yalign 0.5
 
                         if _hidden_count > 0:
                             hbox:
                                 spacing _tl_chip_gap
                                 button:
-                                    background Solid(TL["btn_bg"])
-                                    hover_background Solid(TL["btn_hover_bg"])
-                                    padding (10, 6, 10, 6)
+                                    background Solid("#ffffff14")
+                                    hover_background Solid("#ffffff28")
+                                    xpadding 10
+                                    ypadding 6
                                     yminimum _tl_chip_h
                                     action SetScreenVariable("tl_route_expanded", True)
 
                                     text "Ver mais ({})".format(_hidden_count):
-                                        style "tl_base"
-                                        size TL_SIZE_BODY
-                                        color TL["header_sub"]
+                                        font "wells/fonts/Roboto-Regular.ttf"
+                                        size 21
+                                        color "#9a9183"
                                         yalign 0.5
 
-                        elif tl_route_expanded and _TL_ROUTE_FOLD < len(_tl_route_chips):
+                        elif tl_route_expanded and _WELLS_TL_ROUTE_FOLD < len(_tl_route_chips):
                             hbox:
                                 spacing _tl_chip_gap
                                 button:
-                                    background Solid(TL["btn_bg"])
-                                    hover_background Solid(TL["btn_hover_bg"])
-                                    padding (10, 6, 10, 6)
+                                    background Solid("#ffffff14")
+                                    hover_background Solid("#ffffff28")
+                                    xpadding 10
+                                    ypadding 6
                                     yminimum _tl_chip_h
                                     action SetScreenVariable("tl_route_expanded", False)
 
                                     text "Mostrar menos":
-                                        style "tl_base"
-                                        size TL_SIZE_BODY
-                                        color TL["header_sub"]
+                                        font "wells/fonts/Roboto-Regular.ttf"
+                                        size 21
+                                        color "#9a9183"
                                         yalign 0.5
 
                         frame:
@@ -980,7 +1015,7 @@ screen tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
                             ysize 24
 
                         ## ── Cartões de ramos futuros ───────────────────────────────────────────
-                        use tl_ghost_rows(_tl_ghost_nodes, _tl_card_w, _tl_card_cols, _tl_card_spacing, True)
+                        use wells_tl_ghost_rows(_tl_ghost_nodes, _tl_card_w, _tl_card_cols, _tl_card_spacing, True)
 
                         frame:
                             background None
