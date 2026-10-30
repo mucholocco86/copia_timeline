@@ -357,7 +357,7 @@ screen wells_tl_route_graph_card_body(graph_node, cw, ch):
 
                     text _tl_graph_label:
                         font "wells/fonts/Roboto-Regular.ttf"
-                        size wells_ui(17)
+                        size wells_ui(22)
                         color "#f0ece4"
                         xmaximum _tl_graph_inner_w - wells_ui(16)
                         yalign 0.5
@@ -386,27 +386,50 @@ screen wells_tl_route_map(panel_width=None):
         _tl_graph_nodes = _tl_graph.get("nodes", [])
         _tl_graph_edges = _tl_graph.get("edges", [])
         _tl_graph_card_w = wells_ui(240)
-        _tl_graph_thumb_h = int(_tl_graph_card_w * 21 / 32)
-        _tl_graph_card_h = _tl_graph_thumb_h + wells_ui(88)
+        _tl_graph_inner_w = max(1, _tl_graph_card_w - wells_ui(6))
+        _tl_graph_thumb_h = int(_tl_graph_inner_w * 9 / 16)
+        _tl_graph_text_w = max(1, _tl_graph_inner_w - wells_ui(16))
+        _tl_graph_font_size = wells_ui(22)
+        _tl_graph_chars_per_line = max(
+            1, int(_tl_graph_text_w / float(_tl_graph_font_size * 0.60)))
         _tl_graph_gap_x = wells_ui(68)
         _tl_graph_gap_y = wells_ui(70)
         _tl_graph_margin = wells_ui(88)
         _tl_graph_by_id = dict((n["id"], n) for n in _tl_graph_nodes)
         _tl_graph_max_col = _WELLS_TL_MAX([n.get("column", 0) for n in _tl_graph_nodes] or [0])
-        _tl_graph_max_lane = _WELLS_TL_MAX([n.get("lane", 0) for n in _tl_graph_nodes] or [0])
+        _tl_graph_lane_heights = {}
+        for _tl_gn in _tl_graph_nodes:
+            _tl_gn_label = _tl_strip_renpy_tags(str(
+                _tl_gn.get("choice", {}).get("selected_label") or "Escolha"))
+            _tl_gn_lines = 0
+            for _tl_gn_text_line in (_tl_gn_label.splitlines() or [_tl_gn_label]):
+                _tl_gn_lines += max(
+                    1, (len(_tl_gn_text_line) + _tl_graph_chars_per_line - 1)
+                    // _tl_graph_chars_per_line + 1)
+            _tl_gn_dialog_h = max(
+                wells_ui(88), _tl_gn_lines * wells_ui(29) + wells_ui(10))
+            _tl_gn["_card_h"] = (
+                _tl_graph_thumb_h + _tl_gn_dialog_h + wells_ui(6))
+            _tl_gn_lane = _tl_gn.get("lane", 0)
+            _tl_graph_lane_heights[_tl_gn_lane] = max(
+                _tl_graph_lane_heights.get(_tl_gn_lane, 0), _tl_gn["_card_h"])
         _tl_graph_canvas_w = _WELLS_TL_MAX(
             panel_width or config.screen_width,
             _tl_graph_margin * 2 + (_tl_graph_max_col + 1) * _tl_graph_card_w
             + _tl_graph_max_col * _tl_graph_gap_x)
+        _tl_graph_lane_y = {}
+        _tl_graph_y_cursor = _tl_graph_margin
+        for _tl_gn_lane in sorted(_tl_graph_lane_heights.keys()):
+            _tl_graph_lane_y[_tl_gn_lane] = _tl_graph_y_cursor
+            _tl_graph_y_cursor += (
+                _tl_graph_lane_heights[_tl_gn_lane] + _tl_graph_gap_y)
         _tl_graph_canvas_h = _WELLS_TL_MAX(
-            wells_ui(420),
-            _tl_graph_margin * 2 + (_tl_graph_max_lane + 1) * _tl_graph_card_h
-            + _tl_graph_max_lane * _tl_graph_gap_y)
+            wells_ui(420), _tl_graph_y_cursor - _tl_graph_gap_y + _tl_graph_margin)
         for _tl_gn in _tl_graph_nodes:
             _tl_gn["_x"] = _tl_graph_margin + _tl_gn.get("column", 0) * (
                 _tl_graph_card_w + _tl_graph_gap_x)
-            _tl_gn["_y"] = _tl_graph_margin + _tl_gn.get("lane", 0) * (
-                _tl_graph_card_h + _tl_graph_gap_y)
+            _tl_gn["_y"] = _tl_graph_lane_y.get(
+                _tl_gn.get("lane", 0), _tl_graph_margin)
 
     if not _tl_graph_nodes:
         frame:
@@ -449,8 +472,8 @@ screen wells_tl_route_map(panel_width=None):
                             if _tl_gp and _tl_gc:
                                 _tl_gsx = _tl_gp["_x"] + _tl_graph_card_w
                                 _tl_gex = _tl_gc["_x"]
-                                _tl_gsy = _tl_gp["_y"] + _tl_graph_card_h // 2
-                                _tl_gey = _tl_gc["_y"] + _tl_graph_card_h // 2
+                                _tl_gsy = _tl_gp["_y"] + _tl_gp["_card_h"] // 2
+                                _tl_gey = _tl_gc["_y"] + _tl_gc["_card_h"] // 2
                                 _tl_gmx = (_tl_gsx + _tl_gex) // 2
                                 _tl_gcolor = "#d51f1f" if _tl_ge.get("active") else "#71809b"
 
@@ -484,8 +507,8 @@ screen wells_tl_route_map(panel_width=None):
                         fixed:
                             xpos _tl_gn["_x"]
                             ypos _tl_gn["_y"]
-                            xysize (_tl_graph_card_w, _tl_graph_card_h)
-                            use wells_tl_route_graph_card(_tl_gn, _tl_graph_card_w, _tl_graph_card_h)
+                            xysize (_tl_graph_card_w, _tl_gn["_card_h"])
+                            use wells_tl_route_graph_card(_tl_gn, _tl_graph_card_w, _tl_gn["_card_h"])
 
             vbar:
                 value YScrollValue("tl_route_map_vp")
