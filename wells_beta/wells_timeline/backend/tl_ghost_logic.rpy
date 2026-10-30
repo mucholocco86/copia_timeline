@@ -1,0 +1,606 @@
+## =============================================================================
+## WELLS TIMELINE — tl_ghost_logic.rpy
+## Lógica de execução dos cartões de ramos futuros: hook de nós If, criação de dados e agrupamento.
+## =============================================================================
+
+init -2 python:
+
+    import ast as _tl_ast_mod
+
+    def _collect_branch_imgs(block, max_images=5):
+        """
+        Collect up to max_images Scene/Show images from a branch block.
+        Tier 1: flat block scan. Tier 2: follow first Jump/Call one hop.
+        Returns (images, visited_labels) where images is [(img_str, source_label)].
+        source_label is None for images from the direct block, label name for hop images.
+        """
+        collected = []
+        visited = set()
+        if not block:
+            return collected, visited
+
+        ## Nível 1: leitura linear do bloco
+        for node in block:
+            if len(collected) >= max_images:
+                break
+            t = type(node).__name__
+            if t in ("Scene", "Show"):
+                sp = getattr(node, "imspec", None)
+                if sp and sp[0] and tuple(sp[0]) in renpy.display.image.images:
+                    collected.append((" ".join(sp[0]), None))
+
+        ## Nível 2: segue o primeiro Jump ou Call por um salto
+        if len(collected) < max_images:
+            try:
+                namemap = renpy.game.script.namemap
+                for node in block:
+                    if type(node).__name__ in ("Jump", "Call"):
+                        target = getattr(node, "target", None)
+                        if not target:
+                            continue
+                        label_node = namemap.get(target)
+                        sub_block = getattr(label_node, "block", None)
+                        if sub_block:
+                            visited.add(target)
+                            ## Percorre a cadeia .next — cobre todas as cenas sequenciais do
+                            ## label, não apenas a lista linear do bloco.
+                            ## Para nos nós Label para não avançar para o próximo label.
+                            snode = sub_block[0]
+                            walked = 0
+                            while snode is not None and len(collected) < max_images:
+                                stype = type(snode).__name__
+                                if stype == "Label":
+                                    break
+                                if stype in ("Scene", "Show"):
+                                    sp = getattr(snode, "imspec", None)
+                                    if sp and sp[0] and tuple(sp[0]) in renpy.display.image.images:
+                                        collected.append((" ".join(sp[0]), target))
+                                snode = getattr(snode, "next", None)
+                                walked += 1
+                            if TL_DEBUG_GHOST:
+                                _tl_log("TL collect_branch_imgs hop {}: walked={} imgs={}".format(
+                                    target, walked, [i for i, _ in collected]))
+                        break  ## somente um salto
+            except Exception as e:
+                _tl_log("TL collect_branch_imgs hop failed: {}".format(e))
+
+        return collected, visited
+
+
+init python:
+    import renpy.ast as _tl_renpy_ast
+    _tl_orig_if_execute = _tl_renpy_ast.If.execute
+
+    ## Cache de descritores seen_fn: _tl_builtin_id(branch_block) → tupla seen_fn.
+    ## Os objetos de bloco de ramo permanecem estáveis durante a sessão
+    ## (a AST do Ren'Py é criada na inicialização e nunca é substituída). O dicionário no nível do módulo
+    ## não é afetado pelo rollback — como a AST não muda durante o
+    ## rollback. Não é persistente — os descritores da sessão são derivados da AST.
+    _TL_SEEN_FN_CACHE = {}
+
+    def _tl_ghost_ast(ast_key):
+        """Return persistent AST-derived data for a ghost cluster by its ast_key."""
+        return (persistent._tl_ghost_node_cache or {}).get(str(ast_key)) or {}
+
+    def _tl_make_seen_fn_cached(blk):
+        if blk is None:
+            return ("never",)
+        cache_key = _tl_builtin_id(blk)
+        if cache_key not in _TL_SEEN_FN_CACHE:
+            _TL_SEEN_FN_CACHE[cache_key] = _tl_make_seen_fn(blk)
+        return _TL_SEEN_FN_CACHE[cache_key]
+
+    ## ── Funções auxiliares de variáveis e condições (recuperadas de tl_var_delta.rpy) ─────
+
+    import re as _tl_re
+
+    _TL_VAR_RE     = _tl_re.compile(r'\b([a-z_][a-z0-9_]*)\b(?!\s*\()')
+    _TL_STR_LIT_RE = _tl_re.compile(r'"[^"]*"|\'[^\']*\'')
+    _TL_KW_SKIP    = frozenset([
+        "and","or","not","in","is","True","False","None",
+        "if","else","elif","return","renpy","store","persistent",
+        "len","range","int","str","float","bool","list","dict","set",
+    ])
+
+    ## _tl_prettify_var — definida em tl_ast_tools.rpy (carregado antes deste arquivo)
+
+    def _tl_extract_vars_from_conditions(conditions):
+        """Return the set of game-variable names referenced across all condition strings."""
+        import ast
+        out = set()
+        for cond in conditions:
+            if cond in ("True", "False", "None"):
+                continue
+            try:
+                tree = ast.parse(cond, mode="eval")
+            except SyntaxError:
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Name):
+                    name = node.id
+                    if name not in _TL_KW_SKIP and not name[0].isupper():
+                        out.add(name)
+        return out
+
+    ## ── Agrupamento de ramos mutuamente exclusivos ────────────────────────────────────────
+
+    def _tl_parse_regions(cond_str):
+        """
+        Parse a condition string to DNF regions for mutual exclusivity checks.
+        A region is a dict {var: frozenset({val, ...})}.
+        Returns a list of region dicts, or None if the condition can't be parsed
+        (non-equality operators, complex expressions) — caller treats None as
+        'unknown, don't cluster'.
+        """
+        if not cond_str or cond_str in ("True", "else", ""):
+            return None
+        try:
+            tree = _tl_ast_mod.parse(cond_str, mode="eval")
+        except SyntaxError:
+            return None
+
+        def _node_to_regions(n):
+            if isinstance(n, _tl_ast_mod.BoolOp):
+                if isinstance(n.op, _tl_ast_mod.Or):
+                    result = []
+                    for v in n.values:
+                        cond_regions = _node_to_regions(v)
+                        if cond_regions is None:
+                            return None
+                        result.extend(cond_regions)
+                    return result
+                elif isinstance(n.op, _tl_ast_mod.And):
+                    result = [{}]
+                    for v in n.values:
+                        cond_regions = _node_to_regions(v)
+                        if cond_regions is None:
+                            return None
+                        new_result = []
+                        for existing in result:
+                            for clause in cond_regions:
+                                merged = dict(existing)
+                                ok = True
+                                for var, vals in clause.items():
+                                    if var in merged:
+                                        combined = merged[var] & vals
+                                        if not combined:
+                                            ok = False
+                                            break
+                                        merged[var] = combined
+                                    else:
+                                        merged[var] = vals
+                                if ok:
+                                    new_result.append(merged)
+                        result = new_result
+                    return result if result else None
+            elif isinstance(n, _tl_ast_mod.Compare):
+                if (len(n.ops) == 1 and isinstance(n.ops[0], _tl_ast_mod.Eq) and
+                        isinstance(n.left, _tl_ast_mod.Name)):
+                    var = n.left.id
+                    comp = n.comparators[0]
+                    lit = _tl_ast_literal_value(comp)
+                    if lit is not None:
+                        return [{var: frozenset([lit])}]
+            return None
+
+        return _node_to_regions(tree.body)
+
+    def _tl_should_cluster(prev_ghost, new_conds):
+        """
+        Returns True if new_conds are mutually exclusive with prev_ghost's conditions —
+        safe to group into the same visual cluster (no │ separator).
+
+        Two condition sets are mutually exclusive when every pair of regions (one from
+        each set) is disjoint. Two regions are disjoint when at least one shared variable
+        has non-overlapping value sets. If they share no variables, they are NOT disjoint
+        (could both be true simultaneously) — no clustering.
+        """
+        prev_regions = _tl_ghost_ast(prev_ghost.get("ast_key")).get("_regions") or prev_ghost.get("_regions")
+        if not prev_regions:
+            return False
+
+        new_regions = []
+        for cond in new_conds:
+            if cond in ("True", "else", ""):
+                continue
+            r = _tl_parse_regions(cond)
+            if r is None:
+                if TL_DEBUG_GHOST:
+                    _tl_log("TL cluster: parse failed for '{}' → no cluster".format(cond))
+                return False
+            new_regions.extend(r)
+        if not new_regions:
+            return False
+
+        for ra in prev_regions:
+            for rb in new_regions:
+                shared_vars = set(ra) & set(rb)
+                if not shared_vars:
+                    if TL_DEBUG_GHOST:
+                        _tl_log("TL cluster: no shared vars {} vs {} → no cluster".format(
+                            set(ra), set(rb)))
+                    return False
+                overlap = all(ra[v] & rb[v] for v in shared_vars)
+                if overlap:
+                    if TL_DEBUG_GHOST:
+                        _tl_log("TL cluster: regions overlap {} & {} → no cluster".format(
+                            dict(ra), dict(rb)))
+                    return False
+
+        if TL_DEBUG_GHOST:
+            _tl_log("TL cluster: all regions disjoint → cluster with prev")
+        return True
+
+    def _tl_branch_exits_before_next(block):
+        """
+        Return True when a taken branch clearly exits before sibling ifs can run.
+        Minimal runtime heuristic: explicit Jump/Return at the end of the branch.
+        """
+        if not block:
+            return False
+        _last = block[-1]
+        return type(_last).__name__ in ("Jump", "Return")
+
+    def _tl_extend_ghost_rows(
+            ghost, ast_key, conditions, seen_fns, branch_imgs,
+            regions, affecting_vars=None):
+        """Append hidden sibling-if rows into an existing ghost card."""
+        ghost["conditions"] = list(ghost.get("conditions") or []) + list(conditions or [])
+        ghost["seen_fns"] = list(ghost.get("seen_fns") or []) + list(seen_fns or [])
+        ghost["branch_imgs"] = list(ghost.get("branch_imgs") or []) + list(branch_imgs or [])
+        ghost["_regions"] = list(ghost.get("_regions") or []) + list(regions or [])
+        if affecting_vars:
+            ghost["affecting_vars"] = sorted(set(ghost.get("affecting_vars") or []) | set(affecting_vars))
+        ghost.setdefault("member_ast_keys", []).append(ast_key)
+        return ghost
+
+    def _tl_prettify_condition(cond):
+        """Prettify var names and strip quotes from string values; numeric values left as-is."""
+        if cond == "True":
+            return "else"
+        try:
+            import ast
+            tree = ast.parse(cond, mode="eval")
+            repls = []
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Name):
+                    name = node.id
+                    if name not in _TL_KW_SKIP and not name[0].isupper():
+                        col = node.col_offset
+                        repls.append((col, col + len(name), _tl_prettify_var(name)))
+                elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    repls.append((node.col_offset, node.end_col_offset, str(node.value)))
+            repls.sort(key=lambda x: x[0], reverse=True)
+            result = cond
+            for start, end, pretty in repls:
+                result = result[:start] + pretty + result[end:]
+            return _tl_strip_renpy_tags(result)
+        except Exception:
+            def _repl(m):
+                name = m.group(1)
+                if name in _TL_KW_SKIP or name[0].isupper():
+                    return name
+                return _tl_prettify_var(name)
+            return _tl_strip_renpy_tags(
+                _TL_VAR_RE.sub(_repl, _TL_STR_LIT_RE.sub(lambda m: m.group(0), cond))
+            )
+
+    ## ── Rastreamento de ramos futuros de nós If ───────────────────────────────────────────────
+    ## Altera renpy.ast.If.execute para registrar as condições do ramo
+    ## em tempo real, durante a avaliação do jogo. taken_index é calculado ANTES
+    ## da chamada original, para que efeitos colaterais do ramo não alterem o estado da condição.
+
+    def _tl_get_taken_branch(if_node):
+        """Evaluate conditions in order and return index of first True one."""
+        try:
+            for i, (cond, blk) in enumerate(if_node.entries):
+                cond_str = str(cond)
+                if cond_str == "True":
+                    return i
+                if renpy.python.py_eval(cond_str):
+                    return i
+        except Exception:
+            pass
+        return None
+
+    def _tl_build_ghost_payload(if_node, taken_index, context_img=None):
+        """Build one ghost payload dict for a single If node."""
+        entries = getattr(if_node, "entries", None)
+        if not entries:
+            return None
+
+        conditions = [str(e[0]) for e in entries]
+        if conditions == ["True"]:
+            return None
+
+        affecting_vars = _tl_extract_vars_from_conditions(conditions)
+        if not affecting_vars and any(c not in ("True", "False", "None") for c in conditions):
+            _tl_log("TL ghost payload: no vars extracted from conditions={} key=({},{})".format(
+                conditions,
+                getattr(if_node, "filename", "?"),
+                getattr(if_node, "linenumber", "?")))
+
+        ## branch_imgs é resolvido para todo o grupo em _tl_collect_if_run após a montagem dos dados.
+        branch_imgs = []
+
+        regions = []
+        for cond in conditions:
+            if cond in ("True", "else", ""):
+                continue
+            cond_regions = _tl_parse_regions(cond)
+            if cond_regions is not None:
+                regions.extend(cond_regions)
+            else:
+                regions = None
+                break
+        if TL_DEBUG_GHOST:
+            _tl_log("TL ghost _regions: {}".format(
+                len(regions) if regions is not None else "None"))
+
+        seen_fns = []
+        for cond, blk in entries:
+            seen_fns.append(_tl_make_seen_fn_cached(blk))
+
+        return {
+            "ast_key":        (if_node.filename, if_node.linenumber),
+            "conditions":     conditions,
+            "seen_fns":       seen_fns,
+            "taken_index":    taken_index,
+            "affecting_vars": list(affecting_vars),
+            "branch_imgs":    branch_imgs,
+            "_regions":       regions,
+        }
+
+    def _tl_collect_if_run(start_if_node):
+        """Collect a sequential run of player-relevant sibling If nodes."""
+        context_img = _tl_resolve_live_menu_img_name()
+        run = []
+        node = start_if_node
+        while node is not None and isinstance(node, _tl_renpy_ast.If):
+            payload = _tl_build_ghost_payload(node, _tl_get_taken_branch(node), context_img)
+            if payload is None:
+                break
+            run.append((payload, node))
+            node = getattr(node, "next", None)
+        ## Reúne sequências de imagens originais por ramo; a seleção fica para
+        ## _tl_emit_ghost_cluster, permitindo diferenciá-las entre os dados.
+        for payload, if_node in run:
+            entries = getattr(if_node, "entries", [])
+            seqs = []
+            for cond, blk in entries:
+                imgs, vis = _collect_branch_imgs(blk) if blk else ([], set())
+                seqs.append((imgs, vis))
+            payload["branch_img_seqs"] = seqs
+            payload["context_img"] = context_img
+            payload["all_branches_exit"] = all(
+                _tl_branch_exits_before_next(blk)
+                for _, blk in entries if blk
+            )
+        return [p for p, _ in run]
+
+    def _tl_partition_if_run(run):
+        """Partition a sequential If run into mutually-exclusive cluster components."""
+        if not run:
+            return []
+        groups = []
+        current = [run[0]]
+        for payload in run[1:]:
+            prev = {"_regions": []}
+            for m in current:
+                prev["_regions"].extend(m.get("_regions") or [])
+            jump_cluster = (
+                payload.get("all_branches_exit") and
+                all(p.get("all_branches_exit") for p in current)
+            )
+            if _tl_should_cluster(prev, payload.get("conditions") or []) or jump_cluster:
+                current.append(payload)
+            else:
+                groups.append(current)
+                current = [payload]
+        groups.append(current)
+        return groups
+
+    def _tl_emit_ghost_cluster(group, cluster_with_prev):
+        """Emit one ghost-card object from a clustered group of If payloads."""
+        if not group:
+            return
+        conditions = []
+        seen_fns = []
+        branch_imgs = []
+        affecting_vars = set()
+        regions = []
+        member_ast_keys = []
+        taken_index = None
+        row_offset = 0
+        all_seqs = []
+        context_img = None
+
+        for payload in group:
+            member_ast_keys.append(payload["ast_key"])
+            conditions.extend(payload.get("conditions") or [])
+            seen_fns.extend(payload.get("seen_fns") or [])
+            all_seqs.extend(payload.get("branch_img_seqs") or [])
+            context_img = payload.get("context_img") or context_img
+            affecting_vars |= set(payload.get("affecting_vars") or [])
+            regions.extend(payload.get("_regions") or [])
+            taken_idx = payload.get("taken_index")
+            if taken_idx is not None and taken_index is None:
+                taken_index = row_offset + taken_idx
+            row_offset += len(payload.get("conditions") or [])
+
+        ## Seleciona imagens que diferenciam os ramos de todo o grupo combinado.
+        ## Corte na convergência: remove imagens de labels visitados por todos os ramos.
+        all_vis = [vis for _, vis in all_seqs if vis]
+        shared_labels = (
+            set.intersection(*[set(v) for v in all_vis])
+            if len(all_vis) >= 2 else set()
+        )
+        trunc = [
+            [item for item in imgs if item[1] not in shared_labels]
+            for imgs, _ in all_seqs
+        ]
+        img_sets = [set(img for img, _ in imgs) for imgs in trunc]
+        for branch_idx, imgs in enumerate(trunc):
+            if not imgs:
+                branch_imgs.append(context_img)
+            else:
+                sibling_imgs = set().union(*(img_sets[j] for j in range(len(trunc)) if j != branch_idx))
+                cands = [(img, lbl) for img, lbl in imgs if not _tl_img_name_is_movie(img)]
+                chosen = next((img for img, _ in cands if img not in sibling_imgs), None)
+                branch_imgs.append(chosen or (cands[0][0] if cands else context_img))
+        if TL_DEBUG_GHOST:
+            _tl_log("TL ghost cluster_imgs: {}".format(branch_imgs))
+
+        cache_key = str(group[0]["ast_key"])
+        existing  = (persistent._tl_ghost_node_cache or {}).get(cache_key)
+        if existing is None or existing.get("conditions") != conditions:
+            persistent._tl_ghost_node_cache[cache_key] = {
+                "conditions":     conditions,
+                "seen_fns":       seen_fns,
+                "affecting_vars": sorted(affecting_vars),
+                "_regions":       regions,
+            }
+        store._tl_ghost_nodes.append({
+            "ast_key":           group[0]["ast_key"],
+            "taken_index":       taken_index,
+            "branch_imgs":       branch_imgs,
+            "cluster_with_prev": cluster_with_prev,
+        })
+        if TL_DEBUG_GHOST:
+            _tl_log("TL ghost appended cluster: root_ast={} members={} conditions={} affecting_vars={} cluster={}".format(
+                group[0]["ast_key"], member_ast_keys, conditions,
+                sorted(affecting_vars), cluster_with_prev))
+
+    def _tl_on_if_execute(if_node, taken_index, pre_taken_seen=None):
+        if not _tl_is_game_file(getattr(if_node, "filename", None) or ""):
+            return
+
+## Registra quais nós If foram executados para detectar consumo durante a sessão.
+        try:
+            if_ast_key   = (if_node.filename, if_node.linenumber)
+            key_to_vars  = getattr(persistent, "_tl_if_key_to_vars", None) or {}
+            vars_for_key = key_to_vars.get(if_ast_key) or []
+            if vars_for_key:
+                seen = getattr(store, "_tl_var_if_seen_keys", None)
+                if not isinstance(seen, dict):
+                    seen = {}
+                    store._tl_var_if_seen_keys = seen
+                for var in vars_for_key:
+                    if var not in seen:
+                        seen[var] = set()
+                    seen[var].add(if_ast_key)
+        except Exception as e:
+            _tl_log("TL if_execute var tracking failed: {}".format(e))
+
+        ## Rastreamento de ramos futuros (interface de ramos): somente durante o jogo.
+        if getattr(persistent, "_tl_replaying", False) or config.skipping:
+            return
+
+        try:
+            if not hasattr(store, "_tl_skip_ghost_ifs") or store._tl_skip_ghost_ifs is None:
+                store._tl_skip_ghost_ifs = set()
+
+            ## Ignora nós If já sintetizados pela análise antecipada.
+            if (if_node.filename, if_node.linenumber) in store._tl_skip_ghost_ifs:
+                if TL_DEBUG_GHOST:
+                    _tl_log("TL ghost skip (lookahead-synthesized): {}".format(
+                        (if_node.filename, if_node.linenumber)))
+                return
+
+            run = _tl_collect_if_run(if_node)
+            if not run:
+                return
+            groups = _tl_partition_if_run(run)
+            prev_ghost = store._tl_ghost_nodes[-1] if store._tl_ghost_nodes else None
+            for group_idx, group in enumerate(groups):
+                cluster = False
+                if group_idx == 0 and prev_ghost:
+                    cluster = _tl_should_cluster(prev_ghost, group[0].get("conditions") or [])
+                _tl_emit_ghost_cluster(group, cluster)
+            for payload in run[1:]:
+                store._tl_skip_ghost_ifs.add(payload["ast_key"])
+            _tl_flush_var_changes()
+            _tl_notify_branch(run, taken_index, None)
+        except Exception as e:
+            _tl_log("TL ghost If error: {}".format(e))
+
+    ## ── Aviso de ramo ───────────────────────────────────────────────────
+
+    def _tl_notify_branch(run, taken_index, pre_taken_seen=None):
+        """
+        Emit a tiered branch notification for a full If-run (cluster).
+        The root payload may have taken_index=None when its condition didn't match
+        and the actual taken branch lives in a downstream lookahead payload.
+
+            suppress   — taken branch seen AND all alternatives across entire run seen
+            ⎇          — taken branch seen, at least one alternative unseen
+            ⎇ New path — taken branch was unseen before being taken (pre_taken_seen=False)
+
+        pre_taken_seen is the seen state of the root if's taken branch evaluated
+        BEFORE If.execute ran — so image descriptors are correct (Scene.execute
+        updates _seen_images synchronously inside If.execute).
+        None means indeterminate (descriptor was "never") — suppress New path.
+        """
+        try:
+            all_seen_fns    = []
+            taken_global_idx = None   ## índice linear do ramo escolhido; None se nenhum for escolhido
+            offset           = 0
+            for payload in (run or []):
+                seen_fns = payload.get("seen_fns") or []
+                taken_idx = payload.get("taken_index")
+                all_seen_fns.extend(seen_fns)
+                if taken_idx is not None and taken_idx < len(seen_fns) and taken_global_idx is None:
+                    taken_global_idx = offset + taken_idx
+                offset += len(seen_fns)
+
+            if not all_seen_fns:
+                return
+
+            ## Usa o snapshot anterior à execução em "Novo caminho" para que os
+            ## descritores de imagem não sejam afetados pelas alterações Scene da própria execução.
+            if pre_taken_seen is False:
+                if TL_DEBUG_GHOST:
+                    _tl_log("TL notify: tier=new_path taken_seen=False")
+                renpy.show_screen("_tl_notify", message="⎇ Novo caminho")
+                return
+
+            ## ⎇ somente ícone: ao menos um ramo não escolhido do grupo está bloqueado.
+            ## Se taken_global_idx for None (nenhum ramo escolhido, por exemplo, um If isolado sem condição satisfeita),
+            ## todos os ramos são candidatos — ainda mostra o aviso se algum estiver bloqueado.
+            locked = sum(
+                1 for i, seen_fn in enumerate(all_seen_fns)
+                if i != taken_global_idx and not _tl_eval_seen_fn(seen_fn)
+            )
+            if locked > 0:
+                if TL_DEBUG_GHOST:
+                    _tl_log("TL notify: tier=icon locked={}".format(locked))
+                renpy.show_screen("_tl_notify", message="⎇")
+            elif TL_DEBUG_GHOST:
+                _tl_log("TL notify: tier=suppress")
+            ## todos os ramos já foram vistos — suprime o aviso
+        except Exception as e:
+            _tl_log("TL notify_branch failed: {}".format(e))
+
+    ## ── Callback de navegação de tela — limpa nós de ramos futuros ao mudar de local em sandbox ─
+    ##
+    ## config.statement_callbacks é executado antes de cada instrução nomeada, recebendo
+    ## o nome da instrução como texto. "call screen" e "show screen" cobrem jogos sandbox
+    ## que navegam por instruções de tela (PhotoHunt usa `show screen locN`).
+    ## Os menus já limpam os nós de ramos futuros em _tl_record_before; este callback cobre
+    ## a navegação entre menus nos jogos sandbox.
+    ## Nota: renpy.show_screen() em Python NÃO aciona statement_callbacks,
+    ## portanto, os avisos internos do mod não são afetados.
+
+    def _tl_on_screen_navigate(name):
+        if name not in ("call screen", "show screen"):
+            return
+        if getattr(persistent, "_tl_replaying", False) or config.skipping:
+            return
+        if store._tl_ghost_nodes or store._tl_skip_ghost_ifs:
+            if TL_DEBUG_GHOST:
+                _tl_log("TL screen_navigate: cleared ghost={}".format(len(store._tl_ghost_nodes)))
+            store._tl_ghost_nodes    = []
+            store._tl_skip_ghost_ifs = set()
+
+    config.statement_callbacks.append(_tl_on_screen_navigate)
+
