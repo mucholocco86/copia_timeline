@@ -425,6 +425,7 @@ screen wells_timeline():
                                     font "wells/fonts/Roboto-Regular.ttf"
                                     size wells_ui(21)
                                     color _tt_val_color
+                                    substitute False
                                     yalign 0.5
 
 ## Os cartões ficam em ui/tl_screens.rpy.
