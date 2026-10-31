@@ -148,24 +148,18 @@ screen wells_tl_card_past(node, chosen_label, has_new, cw=wells_ui(300)):
         python:
             _tl_diverged = node.get("_shadow_orig_chosen") is not None
 
-        button:
+        hbox:
             xsize cw
-            ysize wells_ui(46)
-            xpadding 0
-            ypadding 0
-            background Solid("#2c2c2cbe")
-            hover_background Solid("#9c9c9c38")
-            action SetVariable("_tl_modal_node", node)
+            spacing 0
 
-            fixed:
-                xysize (cw, wells_ui(46))
-
-                text "CHOICES":
-                    font "wells/fonts/Roboto-Regular.ttf"
-                    size wells_ui(21)
-                    bold True
-                    color "#faf9f7f5"
-                    xalign 0.5 yalign 0.5
+            frame:
+                xsize cw // 2
+                ysize wells_ui(46)
+                left_padding wells_ui(12)
+                top_padding 0
+                right_padding wells_ui(8)
+                bottom_padding 0
+                background Solid("#0707079a")
 
                 if _tl_diverged:
                     text "⎇":
@@ -173,7 +167,6 @@ screen wells_tl_card_past(node, chosen_label, has_new, cw=wells_ui(300)):
                         size wells_ui(21)
                         bold True
                         color "#faf9f7f5"
-                        xpos wells_ui(12)
                         yalign 0.5
                         italic False
                 elif has_new:
@@ -181,9 +174,31 @@ screen wells_tl_card_past(node, chosen_label, has_new, cw=wells_ui(300)):
                         font "wells/fonts/Roboto-Regular.ttf"
                         size wells_ui(14)
                         color "#faf9f7f5"
-                        xpos wells_ui(12)
                         yalign 0.5
                         italic False
+
+            frame:
+                xsize cw // 2
+                ysize wells_ui(46)
+                xpadding 0
+                ypadding 0
+                background None
+
+                button:
+                    xalign 0.5
+                    yalign 0.5
+                    xpadding wells_ui(10)
+                    ypadding wells_ui(5)
+                    background Solid("#2c2c2cbe")
+                    hover_background Solid("#9c9c9c38")
+                    action SetVariable("_tl_modal_node", node)
+
+                    text "CHOICES":
+                        font "wells/fonts/Roboto-Regular.ttf"
+                        size wells_ui(21)
+                        bold True
+                        color "#faf9f7f5"
+                        xalign 0.5 yalign 0.5
 
 
 ## =============================================================================
@@ -273,18 +288,25 @@ screen wells_tl_card_current(node, cw=wells_ui(300)):
 
             frame:
                 xsize cw
-                ysize wells_ui(46)
-                xpadding 0
-                ypadding 0
-                background Solid("#2c2c2cbe")
+                left_padding 0
+                top_padding wells_ui(6)
+                right_padding wells_ui(10)
+                bottom_padding wells_ui(6)
+                background None
 
-                text "AGORA":
-                    font "wells/fonts/Roboto-Regular.ttf"
-                    size wells_ui(21)
-                    bold True
-                    color "#faf9f7f5"
-                    italic False
-                    xalign 0.5 yalign 0.5
+                frame:
+                    xpadding wells_ui(10)
+                    ypadding wells_ui(5)
+                    background Solid("#2c2c2cbe")
+                    xalign 0.0
+
+                    text "AGORA":
+                        font "wells/fonts/Roboto-Regular.ttf"
+                        size wells_ui(21)
+                        bold True
+                        color "#faf9f7f5"
+                        italic False
+                        xalign 0.5 yalign 0.5
 
 ## -----------------------------------------------------------------------------
 ## Seção 2: ui/wells_tl_debug.rpy
