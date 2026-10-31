@@ -311,7 +311,7 @@ screen wells_timeline():
                             _tl_min_card = wells_ui(160)
                             _tl_max_cols = (_tl_avail + _tl_spacing) // (_tl_min_card + _tl_spacing)
                             if _tl_max_cols < 1: _tl_max_cols = 1
-                            _tl_cols     = _tl_max_cols if _tl_max_cols < 5 else 5
+                            _tl_cols     = _tl_max_cols if _tl_max_cols < 4 else 4
                             _tl_card_w   = (_tl_avail - (_tl_spacing * (_tl_cols - 1))) // _tl_cols
                             ## Agrupa o histórico em linhas de cartões.
                             _tl_items = []

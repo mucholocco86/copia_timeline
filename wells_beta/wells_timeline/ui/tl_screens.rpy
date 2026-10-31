@@ -92,16 +92,22 @@ screen wells_tl_card(node, cw=wells_ui(300)):
             else None)
         _tl_has_new = _tl_node_has_new(node)
 
-    vbox:
+    frame:
         xsize cw
-        spacing 0
+        xpadding 0
+        ypadding 0
+        background Solid("#0a0a0a")
 
-        use wells_tl_thumbnail_frame(cw, _tl_thumb_h, img_disp=_tl_img_disp, fallback_text=_tl_fallback)
+        vbox:
+            xsize cw
+            spacing 0
 
-        if _tl_is_current:
-            use wells_tl_card_current(node, cw)
-        else:
-            use wells_tl_card_past(node, _tl_chosen_label, _tl_has_new, cw)
+            use wells_tl_thumbnail_frame(cw, _tl_thumb_h, img_disp=_tl_img_disp, fallback_text=_tl_fallback)
+
+            if _tl_is_current:
+                use wells_tl_card_current(node, cw)
+            else:
+                use wells_tl_card_past(node, _tl_chosen_label, _tl_has_new, cw)
 
 
 ## =============================================================================
@@ -973,6 +979,7 @@ screen wells_tl_route(tl_route_expanded, tl_route_hover, panel_width=None):
                                                     font "wells/fonts/Roboto-Regular.ttf"
                                                     size wells_ui(21)
                                                     color "#f0ece4"
+                                                    substitute False
                                                     yalign 0.5
 
                         if _hidden_count > 0:
