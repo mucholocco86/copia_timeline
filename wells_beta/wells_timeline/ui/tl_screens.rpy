@@ -177,28 +177,20 @@ screen wells_tl_card_past(node, chosen_label, has_new, cw=wells_ui(300)):
                         yalign 0.5
                         italic False
 
-            frame:
-                xsize cw // 2
-                ysize wells_ui(46)
-                xpadding 0
-                ypadding 0
-                background None
+            button:
+                xanchor 1.0
+                xpadding wells_ui(10)
+                ypadding wells_ui(5)
+                background Solid("#2c2c2cbe")
+                hover_background Solid("#9c9c9c38")
+                action SetVariable("_tl_modal_node", node)
 
-                button:
-                    xalign 0.5
-                    yalign 0.5
-                    xpadding wells_ui(10)
-                    ypadding wells_ui(5)
-                    background Solid("#2c2c2cbe")
-                    hover_background Solid("#9c9c9c38")
-                    action SetVariable("_tl_modal_node", node)
-
-                    text "CHOICES":
-                        font "wells/fonts/Roboto-Regular.ttf"
-                        size wells_ui(21)
-                        bold True
-                        color "#faf9f7f5"
-                        xalign 0.5 yalign 0.5
+                text "CHOICES":
+                    font "wells/fonts/Roboto-Regular.ttf"
+                    size wells_ui(21)
+                    bold True
+                    color "#faf9f7f5"
+                    xalign 0.5 yalign 0.5
 
 
 ## =============================================================================
